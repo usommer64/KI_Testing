@@ -1,6 +1,0 @@
-langchain
-sentence-transformers
-qdrant-client
-milvus
-weaviate-client
-PyPDF2
