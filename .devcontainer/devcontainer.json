@@ -1,18 +1,19 @@
-
-	{
-    "name": "Python 3.10.12 Environment",
-	"build": {
-		"dockerfile": "Dockerfile"
-	},
-	"customizations": {
-		"vscode": {
-			"settings": {
-    "terminal.integrated.defaultProfile.linux": "bash"
+{
+  "name": "Python 3.10.12 Environment",
+  "build": {
+    "dockerfile": "Dockerfile"
   },
-  "extensions": [
-    "ms-python.python",
-    "ms-azuretools.vscode-docker"
-  ],
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash"
+      },
+      "extensions": [
+        "ms-python.python",
+        "ms-azuretools.vscode-docker"
+      ]
+    }
+  },
   "postCreateCommand": "pip install -r requirements.txt",
   "remoteUser": "vscode"
 }
