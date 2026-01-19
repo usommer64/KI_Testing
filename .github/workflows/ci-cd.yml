@@ -29,4 +29,4 @@ jobs:
 
       - name: Deploy job
         run: |
-          modal deploy -m my_package.my_file
+          modal deploy -m my_app.main
