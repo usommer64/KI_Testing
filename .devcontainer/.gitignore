@@ -1,0 +1,71 @@
+#venv
+venv/
+env/
+ENV/
+.venv/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-*
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+*.ipynb
+
+# Vektordatenbank & Modelle
+LAS/data/chroma_db/
+SAS/data/chroma_db/
+data/chroma_db/
+*.db
+*.sqlite
+*.pkl
+*.bin
+*.safetensors
+models/
+
+# Logs & Caches
+*.log
+logs/
+.cache/
+
+# Environment & Secrets
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+
+# OS spezifisch
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temporäre Dateien
+*.tmp
+*.bak
+*.swp
+*~
+
+# Build & Distribution
+build/
+dist/
+*.egg-info/
+
+# PyTorch & ML
+*.pt
+*.pth
+checkpoints/
+
+# Dokumentation (optional)
+docs/_build/
+site/
