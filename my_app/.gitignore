@@ -1,28 +1,32 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-. Python
+#venv
 venv/
 env/
 ENV/
 .venv/
 
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
 # IDEs
 .vscode/
-. idea/
+.idea/
 *.swp
-*. swo
-*. sublime-*
+*.swo
+*.sublime-*
 
 # Jupyter Notebooks
-. ipynb_checkpoints/
-*. ipynb
+.ipynb_checkpoints/
+*.ipynb
 
 # Vektordatenbank & Modelle
+LAS/data/chroma_db/
+SAS/data/chroma_db/
 data/chroma_db/
-*. db
+*.db
 *.sqlite
 *.pkl
 *.bin
@@ -32,13 +36,13 @@ models/
 # Logs & Caches
 *.log
 logs/
-. cache/
+.cache/
 
 # Environment & Secrets
 .env
 .env.local
-. env.*. local
-*. key
+.env.*.local
+*.key
 *.pem
 
 # OS spezifisch
@@ -55,10 +59,10 @@ desktop.ini
 # Build & Distribution
 build/
 dist/
-*. egg-info/
+*.egg-info/
 
 # PyTorch & ML
-*. pt
+*.pt
 *.pth
 checkpoints/
 
