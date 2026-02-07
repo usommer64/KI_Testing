@@ -57,10 +57,13 @@ class LicenseVectorStore:
         
         # ChromaDB Client erstellen
         logger.info(f"📂 Initialisiere ChromaDB in: {persist_directory}")
-        self.client = chromadb.Client(Settings(
-            persist_directory=persist_directory,
-            anonymized_telemetry=False  # Keine Telemetrie
-        ))
+        self.client = chromadb.PersistentClient(
+            path=str(self.persist_directory),
+            settings=Settings(
+                anonymized_telemetry=False # Keine Telemetrie
+            )
+        )  
+        
         
         # Collection erstellen oder laden
         try:

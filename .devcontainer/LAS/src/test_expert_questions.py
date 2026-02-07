@@ -3,6 +3,8 @@
 Testet Experten-Fragen gegen Vektordatenbank.
 """
 
+#%%
+
 from vectorstore import LicenseVectorStore
 from typing import List, Dict
 
