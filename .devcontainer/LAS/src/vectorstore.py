@@ -243,7 +243,7 @@ def main():
     # 1. Dokumente laden
     print("\n📚 SCHRITT 1: Dokumente laden")
     print("-" * 70)
-    loader = LicenseDocumentLoader(chunk_size=1000, chunk_overlap=200)
+    loader = LicenseDocumentLoader(chunk_size=500, chunk_overlap=100)
     chunks = loader.load_and_split(data_dir)
     
     if not chunks:
