@@ -219,63 +219,62 @@ class LicenseVectorStore:
 
 
 # ===== NEU: BUILD-FUNKTION MIT ADAPTIVER CHUNK-SIZE =====
-    def build_vectorstore(
+def build_vectorstore(
     data_dir: str = None,
     chunk_size: int = None,
     chunk_overlap: int = None
-    ) -> LicenseVectorStore:
-        """
-        Baut die Vektordatenbank NEU auf mit adaptiver Chunk-Size.
-        """
-        if data_dir is None:
-            data_dir = str(Path(__file__).parent.parent / "data")
+) -> LicenseVectorStore:
+    """
+    Baut die Vektordatenbank NEU auf mit adaptiver Chunk-Size.
+    """
+    if data_dir is None:
+        data_dir = str(Path(__file__).parent.parent / "data")
+
+    logger.info("="*70)
+    logger.info("🏗️  BAUE VECTORSTORE MIT ADAPTIVER CHUNK-SIZE")
+    logger.info("="*70)
+
+    # Vectorstore initialisieren
+    vs = LicenseVectorStore()
+
+    # ===== ADAPTIVE CHUNK-SIZE PRO DOKUMENT =====
+    pdf_files = list(Path(data_dir).glob("*.pdf"))
+    logger.info(f"📚 Verarbeite {len(pdf_files)} PDFs mit adaptiver Chunk-Size...")
     
-        logger.info("="*70)
-        logger.info("🏗️  BAUE VECTORSTORE MIT ADAPTIVER CHUNK-SIZE")
-        logger.info("="*70)
+    all_chunks = []
     
-        # Vectorstore initialisieren
-        vs = LicenseVectorStore()
+    for pdf_file in pdf_files:
+        filename = pdf_file.name
+        
+        # Chunk-Size aus Statistiken ermitteln
+        if vs.doc_stats is not None and filename in vs.doc_stats.index:
+            word_count = int(vs.doc_stats.loc[filename, 'words'])
+            chunk_size_adaptive, overlap_adaptive = get_chunk_size_by_words(word_count)
+            
+            logger.info(f"📄 {filename}: {word_count} Wörter → "
+                        f"Chunk {chunk_size_adaptive}/{overlap_adaptive}")
+        else:
+            # Fallback
+            logger.warning(f"⚠️ {filename} nicht in Statistiken, nutze Default 400/100")
+            chunk_size_adaptive = 400
+            overlap_adaptive = 100
+        
+        # Loader mit angepasster Chunk-Size
+        loader_temp = LicenseDocumentLoader(
+            chunk_size=chunk_size_adaptive,
+            chunk_overlap=overlap_adaptive
+        )
+        
+        # Nur dieses eine PDF laden
+        chunks = loader_temp.load_single_pdf(pdf_file)
+        
+        logger.info(f"  → {len(chunks)} Chunks erstellt")
+        all_chunks.extend(chunks)
+
+    logger.info(f"✅ Gesamt: {len(all_chunks)} Chunks aus {len(pdf_files)} PDFs")
     
-        # ===== ADAPTIVE CHUNK-SIZE PRO DOKUMENT =====
-        pdf_files = list(Path(data_dir).glob("*.pdf"))
-        logger.info(f"📚 Verarbeite {len(pdf_files)} PDFs mit adaptiver Chunk-Size...")
-        
-        all_chunks = []
-        
-        for pdf_file in pdf_files:
-            filename = pdf_file.name
-            
-            # Chunk-Size aus Statistiken ermitteln
-            if vs.doc_stats is not None and filename in vs.doc_stats.index:
-                word_count = int(vs.doc_stats.loc[filename, 'words'])
-                chunk_size_adaptive, overlap_adaptive = get_chunk_size_by_words(word_count)
-                
-                logger.info(f"📄 {filename}: {word_count} Wörter → "
-                            f"Chunk {chunk_size_adaptive}/{overlap_adaptive}")
-            else:
-                # Fallback
-                logger.warning(f"⚠️ {filename} nicht in Statistiken, nutze Default 400/100")
-                chunk_size_adaptive = 400
-                overlap_adaptive = 100
-            
-            # Loader mit angepasster Chunk-Size
-            loader_temp = LicenseDocumentLoader(
-                chunk_size=chunk_size_adaptive,
-                chunk_overlap=overlap_adaptive
-            )
-            
-            # Nur dieses eine PDF laden
-            chunks = loader_temp.load_single_pdf(pdf_file)
-            
-            logger.info(f"  → {len(chunks)} Chunks erstellt")
-            all_chunks.extend(chunks)
-        
-        logger.info(f"✅ Gesamt: {len(all_chunks)} Chunks aus {len(pdf_files)} PDFs")
-        
-        # Zu Vectorstore hinzufügen
-        vs.add_documents(all_chunks)
-        
+    # Zu Vectorstore hinzufügen
+    vs.add_documents(all_chunks)
     
     # Statistiken
     stats = vs.get_stats()
