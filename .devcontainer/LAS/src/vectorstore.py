@@ -15,9 +15,35 @@ from langchain.schema import Document
 
 from loader import LicenseDocumentLoader
 
+# ===== NEU: PANDAS FÜR CSV =====
+import pandas as pd
+
 # Logging konfigurieren
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# ===== NEU: PFAD ZUR STATISTIK-CSV =====
+STATS_CSV = Path(__file__).parent.parent / "data" / "document_stats.csv"
+
+
+# ===== NEU: ADAPTIVE CHUNK-SIZE FUNKTION =====
+def get_chunk_size_by_words(word_count):
+    """
+    Adaptive Chunk-Size basierend auf Wort-Count.
+    Optimiert für IBM Lizenzdokumente (577-10077 Wörter).
+    """
+    if word_count < 1000:
+        return 500, 125
+    elif word_count < 2000:
+        return 450, 110
+    elif word_count < 3500:
+        return 400, 100
+    elif word_count < 5000:
+        return 350, 90
+    elif word_count < 7000:
+        return 300, 75
+    else:
+        return 250, 60
 
 
 class LicenseVectorStore:
@@ -28,6 +54,7 @@ class LicenseVectorStore:
     - BGE-Large-en-v1.5 Embeddings (Top-Qualität)
     - ChromaDB (persistent, lokal)
     - Asymmetrische Suche (Query-Prefix)
+    - Adaptive Chunk-Size basierend auf Dokumentlänge  # ← NEU
     """
     
     def __init__(
@@ -55,15 +82,23 @@ class LicenseVectorStore:
         self.embedding_model = SentenceTransformer(embedding_model)
         logger.info(f"✅ Modell geladen: {self.embedding_model.get_sentence_embedding_dimension()} Dimensionen")
         
+        # ===== NEU: DOKUMENT-STATISTIKEN LADEN =====
+        if STATS_CSV.exists():
+            self.doc_stats = pd.read_csv(STATS_CSV).set_index('filename')
+            logger.info(f"✅ Dokument-Statistiken geladen: {len(self.doc_stats)} Docs")
+        else:
+            logger.warning(f"⚠️ Keine Statistiken gefunden: {STATS_CSV}")
+            logger.warning("   Führe 'python analyze_documents.py' aus!")
+            self.doc_stats = None
+        
         # ChromaDB Client erstellen
         logger.info(f"📂 Initialisiere ChromaDB in: {persist_directory}")
         self.client = chromadb.PersistentClient(
             path=str(self.persist_directory),
             settings=Settings(
-                anonymized_telemetry=False # Keine Telemetrie
+                anonymized_telemetry=False
             )
-        )  
-        
+        )
         
         # Collection erstellen oder laden
         try:
@@ -108,200 +143,174 @@ class LicenseVectorStore:
         Fügt Dokumente zur Vektordatenbank hinzu.
         
         Args:
-            documents: Liste von LangChain Document-Objekten
+            documents: Liste von LangChain Documents
         """
         if not documents:
-            logger.warning("⚠️  Keine Dokumente zum Hinzufügen!")
+            logger.warning("Keine Dokumente zum Hinzufügen")
             return
         
-        logger.info(f"📝 Bereite {len(documents)} Dokumente vor...")
+        logger.info(f"📄 Füge {len(documents)} Dokumente hinzu...")
         
-        # Texte extrahieren
+        # Texte und Metadaten extrahieren
         texts = [doc.page_content for doc in documents]
+        metadatas = [doc.metadata for doc in documents]
         
-        # Metadaten vorbereiten (ChromaDB akzeptiert nur bestimmte Typen)
-        metadatas = []
-        for doc in documents:
-            metadata = {
-                "source": str(doc.metadata.get("source", "unknown")),
-                "file_name": doc.metadata.get("file_name", "unknown"),
-                "file_type": doc.metadata.get("file_type", "unknown"),
-            }
-            # Page nur hinzufügen wenn vorhanden
-            if "page" in doc.metadata:
-                metadata["page"] = int(doc.metadata["page"])
-            
-            metadatas.append(metadata)
-        
-        # IDs generieren (eindeutige IDs für jedes Dokument)
+        # IDs generieren
         ids = [f"doc_{i}" for i in range(len(documents))]
         
         # Embeddings erstellen
-        logger.info(f"🔢 Erstelle Embeddings (das dauert ~30 Sekunden)...")
         embeddings = self.embed_texts(texts, is_query=False)
         
         # Zu ChromaDB hinzufügen
-        logger.info(f"💾 Speichere in ChromaDB...")
         self.collection.add(
-            documents=texts,
-            metadatas=metadatas,
+            ids=ids,
             embeddings=embeddings,
-            ids=ids
+            documents=texts,
+            metadatas=metadatas
         )
         
-        logger.info(f"✅ {len(documents)} Dokumente hinzugefügt!")
-        logger.info(f"📊 Collection enthält jetzt {self.collection.count()} Dokumente")
+        logger.info(f"✅ {len(documents)} Dokumente hinzugefügt")
     
-    def search(
-        self,
-        query: str,
-        k: int = 5,
-        filter_metadata: Optional[dict] = None
-    ) -> List[dict]:
+    def search(self, query: str, k: int = 5) -> List[dict]:
         """
         Sucht ähnliche Dokumente.
         
         Args:
-            query: Suchanfrage
+            query: Suchquery
             k: Anzahl Ergebnisse
-            filter_metadata: Optional: Filter für Metadaten
-                Beispiel: {"file_type": "pdf"}
             
         Returns:
-            Liste von Ergebnissen mit Text, Metadaten, Score
+            Liste von Dictionaries mit Ergebnissen
         """
         logger.info(f"🔍 Suche: '{query}'")
         
-        # Query-Embedding erstellen (mit Prefix!)
+        # Query-Embedding erstellen
         query_embedding = self.embed_texts([query], is_query=True)[0]
         
-        # ChromaDB-Suche
+        # Suche durchführen
         results = self.collection.query(
             query_embeddings=[query_embedding],
-            n_results=k,
-            where=filter_metadata  # Optional: Filter
+            n_results=k
         )
         
         # Ergebnisse formatieren
         formatted_results = []
         for i in range(len(results['ids'][0])):
-            result = {
-                "id": results['ids'][0][i],
-                "text": results['documents'][0][i],
-                "metadata": results['metadatas'][0][i],
-                "score": results['distances'][0][i]  # Niedriger = ähnlicher
-            }
-            formatted_results.append(result)
+            formatted_results.append({
+                'id': results['ids'][0][i],
+                'document': results['documents'][0][i],
+                'metadata': results['metadatas'][0][i],
+                'score': results['distances'][0][i]
+            })
         
         logger.info(f"✅ {len(formatted_results)} Ergebnisse gefunden")
         return formatted_results
     
-    def reset(self) -> None:
-        """Löscht alle Dokumente aus der Collection."""
-        try:
-            self.client.delete_collection(name=self.collection_name)
-            logger.info(f"🗑️  Collection '{self.collection_name}' gelöscht")
-            
-            self.collection = self.client.create_collection(
-                name=self.collection_name,
-                metadata={"description": "IBM Licensing Documents"}
-            )
-            logger.info(f"✅ Collection '{self.collection_name}' neu erstellt")
-        except Exception as e:
-            logger.error(f"❌ Fehler beim Reset: {e}")
-    
     def get_stats(self) -> dict:
-        """Gibt Statistiken über die Datenbank zurück."""
+        """
+        Gibt Statistiken über die Collection zurück.
+        """
         count = self.collection.count()
-        
-        # Sample-Dokument für Metadaten-Info
-        sample = None
-        if count > 0:
-            sample = self.collection.get(limit=1)
-        
         return {
-            "collection_name": self.collection_name,
-            "total_documents": count,
-            "persist_directory": self.persist_directory,
-            "embedding_model": self.embedding_model,
-            "embedding_dimensions": self.embedding_model.get_sentence_embedding_dimension(),
-            "sample_metadata": sample['metadatas'][0] if sample else None
+            'collection_name': self.collection_name,
+            'total_documents': count,
+            'persist_directory': self.persist_directory
         }
 
 
-def main():
-    """Test-Funktion: Lädt Dokumente und erstellt Vektordatenbank."""
-    from pathlib import Path
+# ===== NEU: BUILD-FUNKTION MIT ADAPTIVER CHUNK-SIZE =====
+def build_vectorstore(
+    data_dir: str = None,
+    chunk_size: int = None,  # Wird ignoriert wenn doc_stats existiert
+    chunk_overlap: int = None  # Wird ignoriert wenn doc_stats existiert
+) -> LicenseVectorStore:
+    """
+    Baut die Vektordatenbank NEU auf mit adaptiver Chunk-Size.
     
-    print("=" * 70)
-    print("🚀 VECTORSTORE SETUP")
-    print("=" * 70)
+    Args:
+        data_dir: Pfad zum data/ Ordner
+        chunk_size: [DEPRECATED] Wird durch adaptive Größen ersetzt
+        chunk_overlap: [DEPRECATED] Wird durch adaptive Größen ersetzt
+    """
+    if data_dir is None:
+        data_dir = str(Path(__file__).parent.parent / "data")
     
-    # Pfad zu Dokumenten
-    data_dir = Path(__file__).parent.parent / "data"
+    logger.info("="*70)
+    logger.info("🏗️  BAUE VECTORSTORE MIT ADAPTIVER CHUNK-SIZE")
+    logger.info("="*70)
     
-    # 1. Dokumente laden
-    print("\n📚 SCHRITT 1: Dokumente laden")
-    print("-" * 70)
-    loader = LicenseDocumentLoader(chunk_size=500, chunk_overlap=100)
-    chunks = loader.load_and_split(data_dir)
+    # Vectorstore initialisieren
+    vs = LicenseVectorStore()
     
-    if not chunks:
-        print("❌ Keine Dokumente gefunden!")
-        return
-    
-    print(f"✅ {len(chunks)} Chunks geladen")
-    
-    # 2. Vectorstore erstellen
-    print("\n🔢 SCHRITT 2: Vectorstore erstellen")
-    print("-" * 70)
-    vectorstore = LicenseVectorStore(
-        collection_name="ibm_licenses",
-        embedding_model="BAAI/bge-large-en-v1.5"
+    # Dokumente laden mit adaptiver Chunk-Size
+    loader = LicenseDocumentLoader(
+        data_dir=data_dir,
+        chunk_size=500,  # Default (wird überschrieben)
+        chunk_overlap=100
     )
     
-    # 3. Dokumente hinzufügen
-    print("\n💾 SCHRITT 3: Dokumente embedden und speichern")
-    print("-" * 70)
-    vectorstore.add_documents(chunks)
+    # ===== ADAPTIVE CHUNK-SIZE PRO DOKUMENT =====
+    pdf_files = list(Path(data_dir).glob("*.pdf"))
+    logger.info(f"📚 Verarbeite {len(pdf_files)} PDFs mit adaptiver Chunk-Size...")
     
-    # 4. Statistiken
-    print("\n📊 SCHRITT 4: Statistiken")
-    print("-" * 70)
-    stats = vectorstore.get_stats()
-    print(f"Collection: {stats['collection_name']}")
-    print(f"Dokumente: {stats['total_documents']}")
-    print(f"Dimensionen: {stats['embedding_dimensions']}")
-    print(f"Speicherort: {stats['persist_directory']}")
+    all_chunks = []
     
-    # 5. Test-Queries
-    print("\n🔍 SCHRITT 5: Test-Queries")
-    print("=" * 70)
-    
-    test_queries = [
-        "Was ist IBM BYOSL?",
-        "Wie funktioniert Container-Lizenzierung?",
-        "Was bedeutet PVU?",
-        "Virtualisierung und Sub-Capacity",
-    ]
-    
-    for query in test_queries:
-        print(f"\n📝 Query: '{query}'")
-        print("-" * 70)
+    for pdf_file in pdf_files:
+        filename = pdf_file.name
         
-        results = vectorstore.search(query, k=3)
+        # Chunk-Size aus Statistiken ermitteln
+        if vs.doc_stats is not None and filename in vs.doc_stats.index:
+            word_count = int(vs.doc_stats.loc[filename, 'words'])
+            chunk_size_adaptive, overlap_adaptive = get_chunk_size_by_words(word_count)
+            
+            logger.info(f"📄 {filename}: {word_count} Wörter → "
+                        f"Chunk {chunk_size_adaptive}/{overlap_adaptive}")
+        else:
+            # Fallback
+            logger.warning(f"⚠️ {filename} nicht in Statistiken, nutze Default 400/100")
+            chunk_size_adaptive = 400
+            overlap_adaptive = 100
         
-        for i, result in enumerate(results, 1):
-            print(f"\n{i}. Score: {result['score']:.4f}")
-            print(f"   Quelle: {result['metadata']['file_name']}")
-            if 'page' in result['metadata']:
-                print(f"   Seite: {result['metadata']['page']}")
-            print(f"   Text: {result['text'][:150]}...")
+        # Loader mit angepasster Chunk-Size
+        loader_temp = LicenseDocumentLoader(
+            data_dir=data_dir,
+            chunk_size=chunk_size_adaptive,
+            chunk_overlap=overlap_adaptive
+        )
+        
+        # Nur dieses eine PDF laden
+        chunks = loader_temp.load_single_pdf(pdf_file)
+        
+        logger.info(f"  → {len(chunks)} Chunks erstellt")
+        all_chunks.extend(chunks)
     
-    print("\n" + "=" * 70)
-    print("✅ VECTORSTORE SETUP ABGESCHLOSSEN!")
-    print("=" * 70)
+    logger.info(f"✅ Gesamt: {len(all_chunks)} Chunks aus {len(pdf_files)} PDFs")
+    
+    # Zu Vectorstore hinzufügen
+    vs.add_documents(all_chunks)
+    
+    # Statistiken
+    stats = vs.get_stats()
+    logger.info("="*70)
+    logger.info("📊 FERTIG")
+    logger.info("="*70)
+    logger.info(f"Collection:  {stats['collection_name']}")
+    logger.info(f"Dokumente:   {stats['total_documents']:,}")
+    logger.info(f"Gespeichert: {stats['persist_directory']}")
+    logger.info("="*70)
+    
+    return vs
 
 
 if __name__ == "__main__":
-    main()
+    # Vectorstore neu bauen
+    vs = build_vectorstore()
+    
+    # Testsuche
+    results = vs.search("Was ist Sub-Capacity Lizenzierung?", k=3)
+    
+    print("\n🔍 TEST-SUCHE:")
+    for i, result in enumerate(results, 1):
+        print(f"\n{i}. Score: {result['score']:.4f}")
+        print(f"   Quelle: {result['metadata'].get('source', 'unknown')}")
+        print(f"   Text: {result['document'][:200]}...")
