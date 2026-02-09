@@ -63,25 +63,28 @@ class LicenseDocumentLoader:
             length_function=len,
         )
     
-    def load_pdf(self, file_path: Path) -> List[Document]:
-        """Lädt ein PDF-Dokument."""
+    def load_single_pdf(self, pdf_path: Path) -> List[Document]:
+        """
+        Lädt ein einzelnes PDF mit den aktuellen Chunk-Einstellungen.
+
+        Args:
+            pdf_path: Pfad zum PDF
+        
+        Returns:
+            Liste von Document-Chunks
+        """
         try:
-            loader = PyPDFLoader(str(file_path))
-            documents = loader.load()
+            loader = PyPDFLoader(str(pdf_path))
+            pages = loader.load()
             
-            # Metadaten anreichern
-            for doc in documents:
-                doc.metadata.update({
-                    "source": str(file_path),
-                    "file_type": "pdf",
-                    "file_name": file_path.name
-                })
+            # In Chunks aufteilen
+            chunks = self.text_splitter.split_documents(pages)
             
-            logger.info(f"✅ PDF geladen: {file_path.name} ({len(documents)} Seiten)")
-            return documents
+            logger.info(f"✅ PDF geladen: {pdf_path.name} ({len(chunks)} Chunks)")
+            return chunks
             
         except Exception as e:
-            logger.error(f"❌ Fehler beim Laden von {file_path}: {e}")
+            logger.error(f"❌ Fehler bei {pdf_path.name}: {e}")
             return []
     
     def load_markdown(self, file_path: Path) -> List[Document]:
