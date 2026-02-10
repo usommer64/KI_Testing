@@ -66,7 +66,7 @@ class LicenseDocumentLoader:
     def load_single_pdf(self, pdf_path: Path) -> List[Document]:
         """
         Lädt ein einzelnes PDF mit den aktuellen Chunk-Einstellungen.
-
+    
         Args:
             pdf_path: Pfad zum PDF
         
@@ -79,6 +79,15 @@ class LicenseDocumentLoader:
             
             # In Chunks aufteilen
             chunks = self.text_splitter.split_documents(pages)
+            
+            # ===== NEU: Metadaten hinzufügen =====
+            for chunk in chunks:
+                chunk.metadata.update({
+                    "source": str(pdf_path),
+                    "file_type": "pdf",
+                    "file_name": pdf_path.name
+                })
+            # =====================================
             
             logger.info(f"✅ PDF geladen: {pdf_path.name} ({len(chunks)} Chunks)")
             return chunks
