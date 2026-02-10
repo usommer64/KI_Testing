@@ -142,7 +142,7 @@ def test_questions(questions: List[Dict], k: int = 5):
             if 'page' in r['metadata']:
                 print(f"     Seite: {r['metadata']['page']}")
             # Ersten 100 Zeichen anzeigen
-            text_preview = r['text'][:100].replace('\n', ' ')
+            text_preview = r['document'][:100].replace('\n', ' ')
             print(f"     Text: {text_preview}...")
     
     # Gesamt-Statistik
