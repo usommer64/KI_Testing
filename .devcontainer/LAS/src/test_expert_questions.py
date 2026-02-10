@@ -137,7 +137,8 @@ def test_questions(questions: List[Dict], k: int = 5):
         # Top-K anzeigen
         print(f"\nTop-{k} Ergebnisse:")
         for j, r in enumerate(search_results, 1):
-            print(f"  {j}. {r['metadata']['file_name']} (Score: {r['score']:.4f})")
+            doc_name = r['metadata'].get('file_name') or r['metadata']['source'].split('/')[-1]
+            print(f"  {j}. {doc_name} (Score: {r['score']:.4f})")
             if 'page' in r['metadata']:
                 print(f"     Seite: {r['metadata']['page']}")
             # Ersten 100 Zeichen anzeigen
