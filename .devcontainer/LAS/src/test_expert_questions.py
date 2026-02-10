@@ -116,8 +116,8 @@ def test_questions(questions: List[Dict], k: int = 5):
             continue
         
         # Beste Ergebnis
-        best = search_results[0]
-        found_doc = best['metadata']['file_name']
+        best = search_results[0]        
+        found_doc = best['metadata'].get('file_name') or best['metadata']['source'].split('/')[-1]
         score = best['score']
         
         print(f"Gefunden: {found_doc} (Score: {score:.4f})")
