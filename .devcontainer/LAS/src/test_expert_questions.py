@@ -189,23 +189,24 @@ def test_questions():
         for i, result in enumerate(results, 1):
             doc_name = result["metadata"].get("file_name", "UNKNOWN")
             page = result["metadata"].get("page", "?")
-            score = result["distance"]
-            
+    
+            # FIX: Flexibler Score-Zugriff
+            score = result.get("distance") or result.get("score") or result.get("similarity", 0.0)
+    
             # Marker für richtiges Dokument
             is_correct = False
             if expected_doc == "Product Terms":
                 is_correct = "Product Terms" in doc_name
             else:
                 is_correct = doc_name in all_valid_docs
-            
+    
             marker = "👉" if is_correct else "  "
             print(f"{marker} {i}. {doc_name} (Seite: {page}, Score: {score:.4f})")
-            
+             
             # Zeige Preview des Texts (erste 150 Zeichen)
             text_preview = result.get("text", "")[:150].replace("\n", " ")
             print(f"      Preview: {text_preview}...")
         
-        print()
         
         # Vendor-Statistik
         if vendor not in stats["by_vendor"]:

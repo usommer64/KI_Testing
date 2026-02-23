@@ -1,7 +1,8 @@
-#%%
+#!/usr/bin/env python3
 """
-Vectorstore für IBM Lizenzierungsdokumente
+Vectorstore für Lizenzierungsdokumente
 Verwendet ChromaDB + BGE-Large-en-v1.5 Embeddings
+Unterstützt: PDF + DOCX mit adaptiver Chunk-Size
 """
 
 from pathlib import Path
@@ -15,22 +16,22 @@ from langchain.schema import Document
 
 from loader import LicenseDocumentLoader
 
-# ===== NEU: PANDAS FÜR CSV =====
+# ===== PANDAS FÜR CSV =====
 import pandas as pd
 
 # Logging konfigurieren
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# ===== NEU: PFAD ZUR STATISTIK-CSV =====
+# ===== PFAD ZUR STATISTIK-CSV =====
 STATS_CSV = Path(__file__).parent.parent / "data" / "document_stats.csv"
 
 
-# ===== NEU: ADAPTIVE CHUNK-SIZE FUNKTION =====
+# ===== ADAPTIVE CHUNK-SIZE FUNKTION =====
 def get_chunk_size_by_words(word_count):
     """
     Adaptive Chunk-Size basierend auf Wort-Count.
-    Optimiert für IBM Lizenzdokumente (577-10077 Wörter).
+    Optimiert für Lizenzdokumente (577-10077 Wörter).
     """
     if word_count < 1000:
         return 500, 125
@@ -54,7 +55,8 @@ class LicenseVectorStore:
     - BGE-Large-en-v1.5 Embeddings (Top-Qualität)
     - ChromaDB (persistent, lokal)
     - Asymmetrische Suche (Query-Prefix)
-    - Adaptive Chunk-Size basierend auf Dokumentlänge  # ← NEU
+    - Adaptive Chunk-Size basierend auf Dokumentlänge
+    - Multi-Format: PDF + DOCX
     """
     
     def __init__(
@@ -82,7 +84,7 @@ class LicenseVectorStore:
         self.embedding_model = SentenceTransformer(embedding_model)
         logger.info(f"✅ Modell geladen: {self.embedding_model.get_sentence_embedding_dimension()} Dimensionen")
         
-        # ===== NEU: DOKUMENT-STATISTIKEN LADEN =====
+        # DOKUMENT-STATISTIKEN LADEN
         if STATS_CSV.exists():
             self.doc_stats = pd.read_csv(STATS_CSV).set_index('filename')
             logger.info(f"✅ Dokument-Statistiken geladen: {len(self.doc_stats)} Docs")
@@ -107,7 +109,7 @@ class LicenseVectorStore:
         except Exception:
             self.collection = self.client.create_collection(
                 name=collection_name,
-                metadata={"description": "IBM Licensing Documents"}
+                metadata={"description": "Licensing Documents (PDF + DOCX)"}
             )
             logger.info(f"✅ Collection '{collection_name}' erstellt")
     
@@ -198,9 +200,9 @@ class LicenseVectorStore:
         for i in range(len(results['ids'][0])):
             formatted_results.append({
                 'id': results['ids'][0][i],
-                'document': results['documents'][0][i],
+                'text': results['documents'][0][i],  # ← GEÄNDERT: 'text' statt 'document'
                 'metadata': results['metadatas'][0][i],
-                'score': results['distances'][0][i]
+                'distance': results['distances'][0][i]  # ← GEÄNDERT: 'distance' statt 'score'
             })
         
         logger.info(f"✅ {len(formatted_results)} Ergebnisse gefunden")
@@ -218,7 +220,7 @@ class LicenseVectorStore:
         }
 
 
-# ===== NEU: BUILD-FUNKTION MIT ADAPTIVER CHUNK-SIZE =====
+# ===== BUILD-FUNKTION MIT ADAPTIVER CHUNK-SIZE + DOCX =====
 def build_vectorstore(
     data_dir: str = None,
     chunk_size: int = None,
@@ -226,24 +228,29 @@ def build_vectorstore(
 ) -> LicenseVectorStore:
     """
     Baut die Vektordatenbank NEU auf mit adaptiver Chunk-Size.
+    Unterstützt PDF + DOCX.
     """
     if data_dir is None:
         data_dir = str(Path(__file__).parent.parent / "data")
 
     logger.info("="*70)
-    logger.info("🏗️  BAUE VECTORSTORE MIT ADAPTIVER CHUNK-SIZE")
+    logger.info("🏗️  BAUE VECTORSTORE MIT ADAPTIVER CHUNK-SIZE + DOCX-SUPPORT")
     logger.info("="*70)
 
     # Vectorstore initialisieren
     vs = LicenseVectorStore()
 
-    # ===== ADAPTIVE CHUNK-SIZE PRO DOKUMENT =====
+    # Sammle alle Dateien
     pdf_files = list(Path(data_dir).glob("*.pdf"))
-    logger.info(f"📚 Verarbeite {len(pdf_files)} PDFs mit adaptiver Chunk-Size...")
+    docx_files = list(Path(data_dir).glob("*.docx"))
+    
+    total_files = len(pdf_files) + len(docx_files)
+    logger.info(f"📚 Verarbeite {len(pdf_files)} PDFs + {len(docx_files)} DOCX = {total_files} Dokumente...")
     
     all_chunks = []
     
-    for pdf_file in pdf_files:
+    # ===== PDFs VERARBEITEN =====
+    for pdf_file in sorted(pdf_files):
         filename = pdf_file.name
         
         # Chunk-Size aus Statistiken ermitteln
@@ -270,8 +277,30 @@ def build_vectorstore(
         
         logger.info(f"  → {len(chunks)} Chunks erstellt")
         all_chunks.extend(chunks)
+    
+    # ===== DOCX VERARBEITEN =====
+    for docx_file in sorted(docx_files):
+        filename = docx_file.name
+        
+        # DOCX haben meist viel Text → Standard Chunk-Size
+        chunk_size_adaptive = 400
+        overlap_adaptive = 100
+        
+        logger.info(f"📄 {filename} (DOCX) → Chunk {chunk_size_adaptive}/{overlap_adaptive}")
+        
+        # Loader
+        loader_temp = LicenseDocumentLoader(
+            chunk_size=chunk_size_adaptive,
+            chunk_overlap=overlap_adaptive
+        )
+        
+        # DOCX laden
+        chunks = loader_temp.load_docx(docx_file)
+        
+        logger.info(f"  → {len(chunks)} Chunks erstellt")
+        all_chunks.extend(chunks)
 
-    logger.info(f"✅ Gesamt: {len(all_chunks)} Chunks aus {len(pdf_files)} PDFs")
+    logger.info(f"✅ Gesamt: {len(all_chunks)} Chunks aus {total_files} Dokumenten")
     
     # Zu Vectorstore hinzufügen
     vs.add_documents(all_chunks)
@@ -296,8 +325,8 @@ if __name__ == "__main__":
     # Testsuche
     results = vs.search("Was ist Sub-Capacity Lizenzierung?", k=3)
     
-    print("\n🔍 TEST-SUCHE:")
+    print("\n🔍 TEST-SUCHE:\n")
     for i, result in enumerate(results, 1):
-        print(f"\n{i}. Score: {result['score']:.4f}")
+        print(f"{i}. Score: {result['distance']:.4f}")
         print(f"   Quelle: {result['metadata'].get('source', 'unknown')}")
-        print(f"   Text: {result['document'][:200]}...")
+        print(f"   Text: {result['text'][:200]}...\n")
