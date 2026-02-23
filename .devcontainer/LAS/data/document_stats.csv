@@ -1,11 +1,14 @@
 filename,file_size_kb,pages,words,characters,paragraphs,sentences,words_per_page,chars_per_word,words_per_paragraph
 BundlingSupporting.pdf,346.4,20,5043,33712,5,218,252.2,6.7,1008.6
+IBM-License-Measurement-Methodology-IBM-Cloud-Pak-for-Data.pdf,425.8,30,7447,49954,3,1332,248.2,6.7,2482.3
+IBM-License-Measurement-Methodology-IBM-Content-Manager-Enterprise-Edition.pdf,311.2,22,4981,34583,2,1191,226.4,6.9,2490.5
 IBMLicensingContentManager.pdf,358.9,20,4670,32357,2,1110,233.5,6.9,2335.0
 IBMLicensingWebSphere.pdf,315.6,28,5606,40912,2,1130,200.2,7.3,2803.0
 IBM_BYSOL_August2024.pdf,1064.0,12,3116,20705,1,161,259.7,6.6,3116.0
 IBM_Backup (5.1.24).pdf,835.5,15,4268,28759,7,216,284.5,6.7,609.7
 IBM_CloudPaks.pdf,501.9,19,5750,36497,3,269,302.6,6.3,1916.7
 IBM_Container_Licensing.pdf,2352.9,20,6140,39348,1,372,307.0,6.4,6140.0
+IBM_Licensing_Models_Passport Advantage.pdf,101.4,6,2362,18191,1,109,393.7,7.7,2362.0
 IBM_Licensing_Tools.pdf,352.9,29,10077,67028,3,550,347.5,6.7,3359.0
 IBM_Non_Productive_Usage.pdf,325.0,12,2990,20905,3,157,249.2,7.0,996.7
 IBM_Virtualization_Capacity_August2024.pdf,651.0,14,4718,32129,1,261,337.0,6.8,4718.0
@@ -37,5 +40,14 @@ L-WPGB-QZXQKF_en.pdf,54.8,10,3435,22864,1,123,343.5,6.7,3435.0
 L-WPVL-Z9BB49_en.pdf,61.3,11,4087,26837,1,143,371.5,6.6,4087.0
 L-YKBN-9H2KET_en.pdf,49.6,9,3119,20636,1,117,346.6,6.6,3119.0
 L-YPZT-N6DZVW_en.pdf,30.4,4,1520,9808,1,73,380.0,6.5,1520.0
+L-YRHY-YWPJ3V_de.pdf,35.2,6,1631,13413,1,54,271.8,8.2,1631.0
 L-YRMY-8LEF7Q_en.pdf,49.4,8,3039,19854,1,132,379.9,6.5,3039.0
 L-ZXQY-ZTTXEF_en.pdf,46.5,8,2906,19207,1,131,363.2,6.6,2906.0
+Microsoft_Education Solution Licensing Guidance.pdf,276.7,18,5281,33613,1,234,293.4,6.4,5281.0
+Microsoft_Licensing_brief_PLT_Robotic_Process_Automation_in_Power_Automate_UI_flows.pdf,266.6,7,2818,18804,3,1366,402.6,6.7,939.3
+Microsoft_Select Plus Academic Licensing Guidance.pdf,160.8,11,3267,21594,1,165,297.0,6.6,3267.0
+Microsoft_Select Plus Government Licensing Guidance.pdf,157.8,10,3068,20568,1,165,306.8,6.7,3068.0
+Microsoft_Server & Cloud Enrollment Licensing Guidance.pdf,188.9,13,3284,21227,1,138,252.6,6.5,3284.0
+Microsoft_Unattended License Licensing Guidance.pdf,148.8,4,1482,8999,1,71,370.5,6.1,1482.0
+RedHat_Enterprise-linux-subscription-guide-en.pdf,783.8,34,9927,72058,4,4380,292.0,7.3,2481.8
+SUSE_subscription_terms.pdf,2931.7,52,23900,222525,2,18933,459.6,9.3,11950.0
