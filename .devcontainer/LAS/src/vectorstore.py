@@ -240,17 +240,22 @@ def build_vectorstore(
     # Vectorstore initialisieren
     vs = LicenseVectorStore()
 
-    # Sammle alle Dateien
+    # ===== FIX 1: SAMMLE AUCH *.PDF (Großbuchstaben) =====
     pdf_files = list(Path(data_dir).glob("*.pdf"))
+    pdf_files_upper = list(Path(data_dir).glob("*.PDF"))
     docx_files = list(Path(data_dir).glob("*.docx"))
+    docx_files_upper = list(Path(data_dir).glob("*.DOCX"))
     
-    total_files = len(pdf_files) + len(docx_files)
-    logger.info(f"📚 Verarbeite {len(pdf_files)} PDFs + {len(docx_files)} DOCX = {total_files} Dokumente...")
+    all_pdfs = pdf_files + pdf_files_upper
+    all_docx = docx_files + docx_files_upper
+    
+    total_files = len(all_pdfs) + len(all_docx)
+    logger.info(f"📚 Verarbeite {len(all_pdfs)} PDFs + {len(all_docx)} DOCX = {total_files} Dokumente...")
     
     all_chunks = []
     
     # ===== PDFs VERARBEITEN =====
-    for pdf_file in sorted(pdf_files):
+    for pdf_file in sorted(all_pdfs):
         filename = pdf_file.name
         
         # Chunk-Size aus Statistiken ermitteln
@@ -278,15 +283,22 @@ def build_vectorstore(
         logger.info(f"  → {len(chunks)} Chunks erstellt")
         all_chunks.extend(chunks)
     
-    # ===== DOCX VERARBEITEN =====
-    for docx_file in sorted(docx_files):
+    # ===== FIX 2: DOCX MIT ADAPTIVER CHUNK-SIZE =====
+    for docx_file in sorted(all_docx):
         filename = docx_file.name
         
-        # DOCX haben meist viel Text → Standard Chunk-Size
-        chunk_size_adaptive = 400
-        overlap_adaptive = 100
-        
-        logger.info(f"📄 {filename} (DOCX) → Chunk {chunk_size_adaptive}/{overlap_adaptive}")
+        # Chunk-Size aus Statistiken ermitteln
+        if vs.doc_stats is not None and filename in vs.doc_stats.index:
+            word_count = int(vs.doc_stats.loc[filename, 'words'])
+            chunk_size_adaptive, overlap_adaptive = get_chunk_size_by_words(word_count)
+            
+            logger.info(f"📄 {filename} (DOCX): {word_count} Wörter → "
+                        f"Chunk {chunk_size_adaptive}/{overlap_adaptive}")
+        else:
+            # Fallback
+            logger.warning(f"⚠️ {filename} (DOCX) nicht in Statistiken, nutze Default 400/100")
+            chunk_size_adaptive = 400
+            overlap_adaptive = 100
         
         # Loader
         loader_temp = LicenseDocumentLoader(
@@ -316,7 +328,7 @@ def build_vectorstore(
     logger.info("="*70)
     
     return vs
-
+#Ende der Funktion build_vectorstore
 
 if __name__ == "__main__":
     # Vectorstore neu bauen
