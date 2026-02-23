@@ -8,6 +8,7 @@ Unterstützt: PDF + DOCX mit adaptiver Chunk-Size
 from pathlib import Path
 from typing import List, Optional
 import logging
+import uuid  
 
 from sentence_transformers import SentenceTransformer
 import chromadb
@@ -140,12 +141,11 @@ class LicenseVectorStore:
         
         return embeddings.tolist()
     
+    # 🔧 FIX: EINDEUTIGE IDs GENERIEREN Anfang
+    
     def add_documents(self, documents: List[Document]) -> None:
         """
         Fügt Dokumente zur Vektordatenbank hinzu.
-        
-        Args:
-            documents: Liste von LangChain Documents
         """
         if not documents:
             logger.warning("Keine Dokumente zum Hinzufügen")
@@ -157,8 +157,11 @@ class LicenseVectorStore:
         texts = [doc.page_content for doc in documents]
         metadatas = [doc.metadata for doc in documents]
         
-        # IDs generieren
-        ids = [f"doc_{i}" for i in range(len(documents))]
+        # ❌ ALTE ZEILE (LÖSCHEN):
+        # ids = [f"doc_{i}" for i in range(len(documents))]
+        
+        # ✅ NEUE ZEILE (HINZUFÜGEN):
+        ids = [str(uuid.uuid4()) for _ in range(len(documents))]
         
         # Embeddings erstellen
         embeddings = self.embed_texts(texts, is_query=False)
@@ -172,6 +175,8 @@ class LicenseVectorStore:
         )
         
         logger.info(f"✅ {len(documents)} Dokumente hinzugefügt")
+
+        # 🔧 FIX: EINDEUTIGE IDs GENERIEREN Ende
     
     def search(self, query: str, k: int = 5) -> List[dict]:
         """
