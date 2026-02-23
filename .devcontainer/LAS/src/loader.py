@@ -80,14 +80,13 @@ class LicenseDocumentLoader:
             # In Chunks aufteilen
             chunks = self.text_splitter.split_documents(pages)
             
-            # ===== NEU: Metadaten hinzufügen =====
+            # Metadaten hinzufügen
             for chunk in chunks:
                 chunk.metadata.update({
                     "source": str(pdf_path),
                     "file_type": "pdf",
                     "file_name": pdf_path.name
                 })
-            # =====================================
             
             logger.info(f"✅ PDF geladen: {pdf_path.name} ({len(chunks)} Chunks)")
             return chunks
@@ -116,144 +115,179 @@ class LicenseDocumentLoader:
             return [doc]
             
         except Exception as e:
-            logger.error(f"❌ Fehler beim Laden von {file_path}: {e}")
+            logger.error(f"❌ Fehler bei {file_path.name}: {e}")
             return []
     
     def load_docx(self, file_path: Path) -> List[Document]:
-        """Lädt ein DOCX-Dokument."""
+        """
+        Lädt ein DOCX-Dokument.
+        
+        Args:
+            file_path: Pfad zum DOCX
+        
+        Returns:
+            Liste von Document-Chunks
+        """
         try:
             loader = Docx2txtLoader(str(file_path))
-            documents = loader.load()
+            docs = loader.load()
             
-            # Metadaten anreichern
-            for doc in documents:
+            # Metadaten hinzufügen (vor dem Chunking)
+            for doc in docs:
                 doc.metadata.update({
                     "source": str(file_path),
                     "file_type": "docx",
                     "file_name": file_path.name
                 })
             
-            logger.info(f"✅ DOCX geladen: {file_path.name}")
-            return documents
+            # In Chunks aufteilen
+            chunks = self.text_splitter.split_documents(docs)
+            
+            logger.info(f"✅ DOCX geladen: {file_path.name} ({len(chunks)} Chunks)")
+            return chunks
             
         except Exception as e:
-            logger.error(f"❌ Fehler beim Laden von {file_path}: {e}")
+            logger.error(f"❌ Fehler bei {file_path.name}: {e}")
             return []
     
-    def load_document(self, file_path: Path) -> List[Document]:
-        """Lädt ein Dokument basierend auf der Dateiendung."""
-        suffix = file_path.suffix.lower()
-        
-        if suffix == ".pdf":
-            return self.load_pdf(file_path)
-        elif suffix == ".md":
-            return self.load_markdown(file_path)
-        elif suffix == ".docx":
-            return self.load_docx(file_path)
-        else:
-            logger.warning(f"⚠️  Nicht unterstützter Dateityp: {suffix}")
-            return []
-    
-    def load_directory(self, directory: Path, recursive: bool = True) -> List[Document]:
+    def load_directory(self, directory: Path) -> List[Document]:
         """
         Lädt alle unterstützten Dokumente aus einem Verzeichnis.
         
         Args:
             directory: Pfad zum Verzeichnis
-            recursive: Auch Unterverzeichnisse durchsuchen
-            
+        
         Returns:
-            Liste aller geladenen Dokumente
+            Liste aller Document-Chunks
         """
-        documents = []
+        all_chunks = []
         
-        if not directory.exists():
-            logger.error(f"❌ Verzeichnis nicht gefunden: {directory}")
-            return documents
+        # Zähler für Statistik
+        stats = {"pdf": 0, "markdown": 0, "docx": 0}
         
-        # Pattern für unterstützte Dateitypen
-        patterns = ["*.pdf", "*.md", "*.docx"]
+        # PDFs laden
+        for pdf_file in directory.glob("**/*.pdf"):
+            chunks = self.load_single_pdf(pdf_file)
+            all_chunks.extend(chunks)
+            stats["pdf"] += 1
         
-        for pattern in patterns:
-            if recursive:
-                files = directory.rglob(pattern)
-            else:
-                files = directory.glob(pattern)
-            
-            for file_path in files:
-                docs = self.load_document(file_path)
-                documents.extend(docs)
+        for pdf_file in directory.glob("**/*.PDF"):  # Auch Großbuchstaben
+            chunks = self.load_single_pdf(pdf_file)
+            all_chunks.extend(chunks)
+            stats["pdf"] += 1
         
-        logger.info(f"📚 Insgesamt {len(documents)} Dokumente aus {directory.name} geladen")
-        return documents
+        # Markdown laden
+        for md_file in directory.glob("**/*.md"):
+            docs = self.load_markdown(md_file)
+            chunks = self.text_splitter.split_documents(docs)
+            all_chunks.extend(chunks)
+            stats["markdown"] += 1
+        
+        # DOCX laden
+        for docx_file in directory.glob("**/*.docx"):
+            chunks = self.load_docx(docx_file)
+            all_chunks.extend(chunks)
+            stats["docx"] += 1
+        
+        for docx_file in directory.glob("**/*.DOCX"):  # Auch Großbuchstaben
+            chunks = self.load_docx(docx_file)
+            all_chunks.extend(chunks)
+            stats["docx"] += 1
+        
+        # Statistik ausgeben
+        logger.info(f"\n{'='*70}")
+        logger.info(f"📊 DOKUMENTE GELADEN:")
+        logger.info(f"  - PDFs:     {stats['pdf']}")
+        logger.info(f"  - Markdown: {stats['markdown']}")
+        logger.info(f"  - DOCX:     {stats['docx']}")
+        logger.info(f"  - GESAMT:   {sum(stats.values())} Dateien")
+        logger.info(f"  - CHUNKS:   {len(all_chunks)}")
+        logger.info(f"{'='*70}\n")
+        
+        return all_chunks
     
     def split_documents(self, documents: List[Document]) -> List[Document]:
         """
-        Splittet Dokumente in Chunks.
+        Splittet Dokumente in Chunks (falls noch nicht geschehen).
         
         Args:
             documents: Liste von Dokumenten
-            
-        Returns:
-            Liste von Chunks (Document-Objekte)
-        """
-        chunks = self.text_splitter.split_documents(documents)
-        logger.info(f"✂️  {len(documents)} Dokumente in {len(chunks)} Chunks aufgeteilt")
-        return chunks
-    
-    def load_and_split(self, directory: Path, recursive: bool = True) -> List[Document]:
-        """
-        Lädt Dokumente aus Verzeichnis und splittet sie direkt.
         
-        Args:
-            directory: Pfad zum Verzeichnis
-            recursive: Auch Unterverzeichnisse durchsuchen
-            
         Returns:
             Liste von Chunks
         """
-        documents = self.load_directory(directory, recursive)
-        if not documents:
-            logger.warning("⚠️  Keine Dokumente geladen!")
-            return []
-        
-        chunks = self.split_documents(documents)
-        return chunks
+        return self.text_splitter.split_documents(documents)
 
 
-def main():
-    """Test-Funktion"""
-    from pathlib import Path
-    
-    # Pfad zu Ihren IBM-Dokumenten
-    data_dir = Path(__file__).parent.parent / "data"
-    
-    print(f"📂 Lade Dokumente aus: {data_dir}")
-    print("-" * 60)
-    
-    # Loader erstellen
-    loader = LicenseDocumentLoader(
-        chunk_size=1000,
-        chunk_overlap=200
-    )
-    
-    # Dokumente laden und splitten
-    chunks = loader.load_and_split(data_dir)
-    
-    print("-" * 60)
-    print(f"✅ Fertig! {len(chunks)} Chunks erstellt")
-    
-    # Beispiel-Chunk anzeigen
-    if chunks:
-        print("\n" + "=" * 60)
-        print("📄 Beispiel-Chunk:")
-        print("=" * 60)
-        chunk = chunks[0]
-        print(f"Quelle: {chunk.metadata.get('file_name', 'unknown')}")
-        print(f"Typ: {chunk.metadata.get('file_type', 'unknown')}")
-        print(f"Seite: {chunk.metadata.get('page', 'N/A')}")
-        print(f"\nInhalt (erste 500 Zeichen):\n{chunk.page_content[:500]}...")
+# ===== HELPER FUNKTION =====
 
+def count_words(text: str) -> int:
+    """Zählt Wörter in einem Text."""
+    return len(text.split())
+
+
+def analyze_document(doc_path: Path) -> Dict[str, Any]:
+    """
+    Analysiert ein Dokument und gibt Statistiken zurück.
+    
+    Args:
+        doc_path: Pfad zum Dokument
+    
+    Returns:
+        Dict mit Statistiken (pages, words, chars, etc.)
+    """
+    loader = LicenseDocumentLoader()
+    
+    if doc_path.suffix.lower() == '.pdf':
+        chunks = loader.load_single_pdf(doc_path)
+    elif doc_path.suffix.lower() == '.docx':
+        chunks = loader.load_docx(doc_path)
+    elif doc_path.suffix.lower() == '.md':
+        docs = loader.load_markdown(doc_path)
+        chunks = loader.split_documents(docs)
+    else:
+        return {"error": f"Nicht unterstützter Dateityp: {doc_path.suffix}"}
+    
+    # Statistiken berechnen
+    total_chars = sum(len(chunk.page_content) for chunk in chunks)
+    total_words = sum(count_words(chunk.page_content) for chunk in chunks)
+    
+    return {
+        "filename": doc_path.name,
+        "file_type": doc_path.suffix.lower(),
+        "chunks": len(chunks),
+        "total_chars": total_chars,
+        "total_words": total_words,
+        "avg_chunk_size": total_chars / len(chunks) if chunks else 0,
+        "avg_words_per_chunk": total_words / len(chunks) if chunks else 0,
+    }
+
+
+# ===== MAIN (für schnelle Tests) =====
 
 if __name__ == "__main__":
-    main()
+    # Quick Test
+    data_dir = Path(__file__).parent.parent / "data" / "pdfs"
+    
+    if data_dir.exists():
+        print(f"📂 Teste Loader mit: {data_dir}")
+        
+        loader = LicenseDocumentLoader(chunk_size=500, chunk_overlap=100)
+        chunks = loader.load_directory(data_dir)
+        
+        print(f"\n✅ {len(chunks)} Chunks geladen")
+        
+        # Zeige Beispiel
+        if chunks:
+            print("\n" + "="*70)
+            print("📄 BEISPIEL-CHUNK:")
+            print("="*70)
+            chunk = chunks[0]
+            print(f"Datei: {chunk.metadata.get('file_name', 'unknown')}")
+            print(f"Typ:   {chunk.metadata.get('file_type', 'unknown')}")
+            print(f"Seite: {chunk.metadata.get('page', 'N/A')}")
+            print(f"\nInhalt (erste 300 Zeichen):")
+            print(chunk.page_content[:300])
+            print("="*70)
+    else:
+        print(f"❌ Verzeichnis nicht gefunden: {data_dir}")
