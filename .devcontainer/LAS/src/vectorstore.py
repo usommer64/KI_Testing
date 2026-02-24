@@ -14,8 +14,8 @@ from sentence_transformers import SentenceTransformer
 import chromadb
 from chromadb.config import Settings
 from langchain.schema import Document
-
-from loader import LicenseDocumentLoader
+from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 # Logging konfigurieren
 logging.basicConfig(level=logging.INFO)
@@ -38,13 +38,13 @@ class LicenseVectorStore:
         collection_name: str = "ibm_licenses",
         persist_directory: str = None,
         embedding_model: str = "BAAI/bge-large-en-v1.5",
-        use_adaptive_chunking: bool = True  # ← NEU! Flag für Experiment
+        use_adaptive_chunking: bool = True  # ← Flag für Experiment
     ):
         """
         Args:
             collection_name: Name der ChromaDB Collection
             persist_directory: Pfad für persistente Speicherung
-            embedding_model: Hugging Face Model-Name
+            embedding_model: Hugging Face Model-name
             use_adaptive_chunking: True = adaptive Größen, False = fix 400/100
         """
         self.collection_name = collection_name
@@ -159,7 +159,7 @@ class LicenseVectorStore:
         # PDFs verarbeiten
         for pdf_file in all_pdfs:
             try:
-                # Wortanzahl schätzen (einfach)
+                # Wortanzahl schätzen
                 import PyPDF2
                 with open(pdf_file, 'rb') as f:
                     pdf = PyPDF2.PdfReader(f)
@@ -173,14 +173,19 @@ class LicenseVectorStore:
                 
                 logger.info(f"📄 {pdf_file.name}: {word_count} Wörter → Chunk {chunk_size}/{overlap}")
                 
-                # Loader mit spezifischen Parametern
-                loader = LicenseDocumentLoader(
+                # PDF laden
+                pdf_loader = PyPDFLoader(str(pdf_file))
+                pages = pdf_loader.load()
+                
+                # Splitter mit aktuellen Parametern
+                splitter = RecursiveCharacterTextSplitter(
                     chunk_size=chunk_size,
-                    chunk_overlap=overlap
+                    chunk_overlap=overlap,
+                    length_function=len,
+                    separators=["\n\n", "\n", ".", "!", "?", ",", " ", ""]
                 )
                 
-                # Chunks erstellen
-                chunks = loader.load_pdf(pdf_file)
+                chunks = splitter.split_documents(pages)
                 
                 # Metadata erweitern
                 for chunk in chunks:
@@ -208,14 +213,18 @@ class LicenseVectorStore:
                 
                 logger.info(f"📄 {docx_file.name} (DOCX): {word_count} Wörter → Chunk {chunk_size}/{overlap}")
                 
-                # Loader mit spezifischen Parametern
-                loader = LicenseDocumentLoader(
+                # DOCX laden
+                docx_loader = Docx2txtLoader(str(docx_file))
+                doc_content = docx_loader.load()
+                
+                splitter = RecursiveCharacterTextSplitter(
                     chunk_size=chunk_size,
-                    chunk_overlap=overlap
+                    chunk_overlap=overlap,
+                    length_function=len,
+                    separators=["\n\n", "\n", ".", "!", "?", ",", " ", ""]
                 )
                 
-                # Chunks erstellen
-                chunks = loader.load_docx(docx_file)
+                chunks = splitter.split_documents(doc_content)
                 
                 # Metadata erweitern
                 for chunk in chunks:
