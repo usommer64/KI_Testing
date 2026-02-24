@@ -1,0 +1,57 @@
+{
+  "name": "Baseline_Neu1",
+  "timestamp": "2026-02-24T06:16:49.430473",
+  "config": {
+    "chunk_size": "adaptive",
+    "model": "BAAI/bge-large-en-v1.5",
+    "k": 5,
+    "vendors": [
+      "IBM",
+      "Microsoft"
+    ],
+    "phase": "1",
+    "num_docs": "~80 (IBM + Microsoft + Red Hat + SUSE)"
+  },
+  "results": {
+    "total": 7,
+    "top1_correct": 1,
+    "top3_correct": 2,
+    "top5_correct": 2,
+    "not_found": 5,
+    "by_vendor": {
+      "IBM": {
+        "total": 3,
+        "top1": 1,
+        "top3": 2,
+        "top5": 2
+      },
+      "Microsoft": {
+        "total": 4,
+        "top1": 0,
+        "top3": 0,
+        "top5": 0
+      }
+    },
+    "by_difficulty": {
+      "EINFACH": {
+        "total": 3,
+        "top1": 0,
+        "top3": 1,
+        "top5": 1
+      },
+      "MITTEL": {
+        "total": 2,
+        "top1": 0,
+        "top3": 0,
+        "top5": 0
+      },
+      "SCHWER": {
+        "total": 2,
+        "top1": 1,
+        "top3": 1,
+        "top5": 1
+      }
+    }
+  },
+  "notes": "Nach Strategieänderungen fangen wir hier neu an."
+}
