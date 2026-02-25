@@ -16,6 +16,8 @@ from chromadb.config import Settings
 from langchain.schema import Document
 from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
+from product_mapping import ProductMapper
+
 
 # Logging konfigurieren
 logging.basicConfig(level=logging.INFO)
@@ -52,10 +54,12 @@ class LicenseVectorStore:
         
         # Default: Speichern neben src/
         if persist_directory is None:
-            persist_directory = str(Path(__file__).parent.parent / "data" / "chroma_db")
-        
+            persist_directory = str(Path(__file__).parent.parent / "data" / "chroma_db")        
         self.persist_directory = persist_directory
-        
+                
+        #ProductMapper initialisieren
+        self.product_mapper = ProductMapper()
+
         # Embedding-Modell laden
         logger.info(f"📥 Lade Embedding-Modell: {embedding_model}")
         self.embedding_model = SentenceTransformer(embedding_model)

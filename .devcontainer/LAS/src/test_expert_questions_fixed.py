@@ -159,7 +159,9 @@ def test_questions():
         all_valid_docs = [expected_doc] + alternative_docs
         
         for i, result in enumerate(results, 1):
-            doc_name = result["metadata"].get("file_name", "UNKNOWN")
+            # FIX: Extrahiere Dateinamen aus source (Fixed-Collection hat kein file_name)
+            source = result["metadata"].get("source", "")
+            doc_name = Path(source).name if source else "UNKNOWN"
             
             # Spezialfall: Microsoft Product Terms (akzeptiere alle Dateien die "Product Terms" enthalten)
             if expected_doc == "Product Terms":
@@ -191,7 +193,9 @@ def test_questions():
         print()
         print("Top-5 Ergebnisse:")
         for i, result in enumerate(results, 1):
-            doc_name = result["metadata"].get("file_name", "UNKNOWN")
+            # FIX: Extrahiere Dateinamen aus source (Fixed-Collection hat kein file_name)
+            source = result["metadata"].get("source", "")
+            doc_name = Path(source).name if source else "UNKNOWN"
             page = result["metadata"].get("page", "?")
     
             # FIX: Flexibler Score-Zugriff
