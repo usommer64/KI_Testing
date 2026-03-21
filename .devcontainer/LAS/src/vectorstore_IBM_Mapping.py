@@ -1,16 +1,33 @@
-# vectorstore.py
-import os
-import logging
-from typing import List, Dict, Any, Optional
-from langchain_chroma import Chroma
-from langchain_openai import OpenAIEmbeddings
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_core.documents import Document
-import hashlib
-import re
-from pathlib import Path
+#%%
+"""
+Vectorstore für IBM Lizenzierungsdokumente - COMPLETE VERSION
+Kombiniert:
+- Adaptive + Fixed Chunking (Flag-gesteuert)
+- IBM Product Mapping Integration
+- BGE-Large-en-v1.5 Embeddings (lokal, kein API-Call)
+- Asymmetrische Suche (Query-Prefix)
+- Document Stats Integration
+- PDF + DOCX Support
+"""
 
+from pathlib import Path
+from typing import List, Optional, Dict, Any
+import logging
+import uuid
+import os
+import re
+
+from sentence_transformers import SentenceTransformer
+import chromadb
+from chromadb.config import Settings
+from langchain.schema import Document
+from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+
+# Logging konfigurieren
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
 
 # ============================================================================
 # HELPER-FUNKTION: IBM Produkt-Mapping einlesen
@@ -21,7 +38,7 @@ def load_ibm_product_mapping(mapping_file: str = "product_mapping.txt") -> Dict[
     Liest die IBM Produkt-Mapping-Datei ein und erstellt ein Dictionary.
     
     Args:
-        mapping_file: Pfad zur Mapping-Datei (Standard: product_mapping.txt)
+        mapping_file: Pfad zur Mapping-Datei (Standard: product_mapping.txt im data-Ordner)
     
     Returns:
         Dictionary mit license_code als Key und product_name, language, filename als Values
@@ -36,14 +53,17 @@ def load_ibm_product_mapping(mapping_file: str = "product_mapping.txt") -> Dict[
     """
     mapping = {}
     
+    # Suche Mapping-Datei im data-Ordner
+    mapping_path = Path(__file__).parent.parent / "data" / mapping_file
+    
     try:
-        if not os.path.exists(mapping_file):
-            logger.warning(f"IBM Product Mapping-Datei nicht gefunden: {mapping_file}")
+        if not mapping_path.exists():
+            logger.warning(f"⚠️  IBM Product Mapping-Datei nicht gefunden: {mapping_path}")
             return mapping
         
-        with open(mapping_file, 'r', encoding='utf-8') as f:
+        with open(mapping_path, 'r', encoding='utf-8') as f:
             # Erste Zeile überspringen (Header)
-            next(f)
+            header = next(f)
             
             for line_num, line in enumerate(f, start=2):
                 line = line.strip()
@@ -57,27 +77,30 @@ def load_ibm_product_mapping(mapping_file: str = "product_mapping.txt") -> Dict[
                 
                 license_code, product_name, language, filename = parts
                 
-                mapping[license_code] = {
-                    'product_name': product_name,
-                    'language': language,
-                    'filename': filename
+                mapping[license_code.strip()] = {
+                    'product_name': product_name.strip(),
+                    'language': language.strip(),
+                    'filename': filename.strip()
                 }
         
-        logger.info(f"IBM Product Mapping erfolgreich geladen: {len(mapping)} Einträge")
+        logger.info(f"✅ IBM Product Mapping erfolgreich geladen: {len(mapping)} Einträge")
         
     except Exception as e:
-        logger.error(f"Fehler beim Laden der IBM Product Mapping-Datei: {e}")
+        logger.error(f"❌ Fehler beim Laden der IBM Product Mapping-Datei: {e}")
     
     return mapping
 
 
 # ============================================================================
-# METADATA-EXTRAKTION MIT IBM-MAPPING
+# HELPER-FUNKTION: Metadaten aus Dateiname + Mapping extrahieren
 # ============================================================================
 
-def extract_metadata_from_filename(filename: str, ibm_mapping: Optional[Dict[str, Dict[str, str]]] = None) -> Dict[str, Any]:
+def extract_metadata_from_filename(
+    filename: str, 
+    ibm_mapping: Optional[Dict[str, Dict[str, str]]] = None
+) -> Dict[str, Any]:
     """
-    Extrahiert Metadaten aus dem Dateinamen.
+    Extrahiert Metadaten aus dem Dateinamen mit IBM Mapping Support.
     
     Unterstützte Formate:
     - IBM: L-XXXX-XXXXXX_lang.pdf (z.B. L-CHSG-4QYF8X_en.pdf)
@@ -91,7 +114,7 @@ def extract_metadata_from_filename(filename: str, ibm_mapping: Optional[Dict[str
         Dictionary mit Metadaten
     """
     metadata = {
-        'source': filename,
+        'file_name': filename,
         'manufacturer': 'Unknown',
         'product_name': 'Unknown',
         'language': 'Unknown',
@@ -123,15 +146,13 @@ def extract_metadata_from_filename(filename: str, ibm_mapping: Optional[Dict[str
                 )
         else:
             metadata['product_name'] = f"IBM Product {license_code}"
-            if not ibm_mapping:
-                logger.debug(f"Kein IBM Mapping verfügbar für {filename}")
-            else:
-                logger.warning(f"License Code {license_code} nicht im IBM Mapping gefunden")
+            if ibm_mapping is not None:  # Nur warnen wenn Mapping existiert
+                logger.debug(f"License Code {license_code} nicht im IBM Mapping gefunden")
     
     else:
         # Annahme: Microsoft oder anderer Hersteller
         metadata['manufacturer'] = 'Microsoft'
-        metadata['product_name'] = filename.replace('.pdf', '')
+        metadata['product_name'] = filename.replace('.pdf', '').replace('.PDF', '')
         
         # Versuche Sprache aus Dateinamen zu extrahieren (z.B. _de.pdf, _en.pdf)
         lang_match = re.search(r'_([a-z]{2})\.pdf$', filename, re.IGNORECASE)
@@ -142,230 +163,439 @@ def extract_metadata_from_filename(filename: str, ibm_mapping: Optional[Dict[str
 
 
 # ============================================================================
-# VECTORSTORE-KLASSE
+# HAUPTKLASSE: LicenseVectorStore
 # ============================================================================
 
-class VectorStoreManager:
-    """Manager für ChromaDB Vector Store mit Unterstützung für IBM und Microsoft Lizenzen"""
+class LicenseVectorStore:
+    """
+    Vektordatenbank für Lizenzdokumente.
+    
+    Features:
+    - BGE-Large-en-v1.5 Embeddings (Top-Qualität, lokal)
+    - ChromaDB (persistent, lokal)
+    - Asymmetrische Suche (Query-Prefix)
+    - Adaptive ODER Fixed Chunk-Größe (Experiment-Flag)
+    - IBM Product Mapping Integration
+    - Document Stats Integration
+    - PDF + DOCX Support
+    """
     
     def __init__(
         self,
-        persist_directory: str = "./chroma_db",
-        collection_name: str = "license_documents",
-        embedding_model: str = "text-embedding-3-small",
+        collection_name: str = "ibm_licenses",
+        persist_directory: str = None,
+        embedding_model: str = "BAAI/bge-large-en-v1.5",
+        use_adaptive_chunking: bool = True,
         ibm_mapping_file: str = "product_mapping.txt"
     ):
         """
-        Initialisiert den VectorStore Manager.
-        
         Args:
-            persist_directory: Verzeichnis für ChromaDB Persistenz
             collection_name: Name der ChromaDB Collection
-            embedding_model: OpenAI Embedding Model
+            persist_directory: Pfad für persistente Speicherung
+            embedding_model: Hugging Face Model-name
+            use_adaptive_chunking: True = adaptive Größen, False = fix 400/100
             ibm_mapping_file: Pfad zur IBM Product Mapping-Datei
         """
-        self.persist_directory = persist_directory
         self.collection_name = collection_name
+        self.use_adaptive_chunking = use_adaptive_chunking
         
-        # IBM Mapping laden
+        # Default: Speichern neben src/
+        if persist_directory is None:
+            persist_directory = str(Path(__file__).parent.parent / "data" / "chroma_db")        
+        self.persist_directory = persist_directory
+        
+        # IBM Product Mapping laden
         self.ibm_mapping = load_ibm_product_mapping(ibm_mapping_file)
+        logger.info(f"📋 IBM Product Mapping: {len(self.ibm_mapping)} Produkte")
+
+        # Embedding-Modell laden
+        logger.info(f"📥 Lade Embedding-Modell: {embedding_model}")
+        self.embedding_model = SentenceTransformer(embedding_model)
+        logger.info(f"✅ Modell geladen: {self.embedding_model.get_sentence_embedding_dimension()} Dimensionen")
         
-        # Embedding-Modell initialisieren
-        self.embeddings = OpenAIEmbeddings(model=embedding_model)
+        # Dokument-Statistiken laden (nur wenn adaptive)
+        if use_adaptive_chunking:
+            stats_file = Path(__file__).parent / "document_stats.csv"
+            if stats_file.exists():
+                import pandas as pd
+                self.doc_stats = pd.read_csv(stats_file)
+                logger.info(f"✅ Dokument-Statistiken geladen: {len(self.doc_stats)} Docs")
+                
+                # Index für schnellen Lookup
+                self.doc_stats.set_index('file_name', inplace=True)
+            else:
+                self.doc_stats = None
+                logger.warning("⚠️  Keine document_stats.csv gefunden - nutze adaptive Defaults")
+        else:
+            # Fixed mode
+            logger.info("🔧 EXPERIMENT: Feste Chunk-Größe 400/100 (kein Adaptive Chunking)")
+            self.doc_stats = None
+            self.fixed_chunk_size = 400
+            self.fixed_chunk_overlap = 100
         
-        # VectorStore initialisieren
-        self.vectorstore = Chroma(
-            collection_name=collection_name,
-            embedding_function=self.embeddings,
-            persist_directory=persist_directory
-        )
-        
-        logger.info(f"VectorStore initialisiert: {collection_name}")
-        logger.info(f"IBM Product Mapping: {len(self.ibm_mapping)} Produkte geladen")
-    
-    def create_text_splitter(
-        self,
-        chunk_size: int = 1000,
-        chunk_overlap: int = 200
-    ) -> RecursiveCharacterTextSplitter:
-        """
-        Erstellt einen Text Splitter für die Dokumenten-Aufteilung.
-        
-        Args:
-            chunk_size: Größe der Text-Chunks
-            chunk_overlap: Überlappung zwischen Chunks
-        
-        Returns:
-            RecursiveCharacterTextSplitter Instanz
-        """
-        return RecursiveCharacterTextSplitter(
-            chunk_size=chunk_size,
-            chunk_overlap=chunk_overlap,
-            length_function=len,
-            separators=["\n\n", "\n", ". ", " ", ""]
-        )
-    
-    def generate_doc_id(self, content: str, source: str, chunk_index: int) -> str:
-        """
-        Generiert eine eindeutige ID für einen Dokument-Chunk.
-        
-        Args:
-            content: Chunk-Inhalt
-            source: Quell-Datei
-            chunk_index: Index des Chunks
-        
-        Returns:
-            Hash-basierte eindeutige ID
-        """
-        unique_string = f"{source}_{chunk_index}_{content[:100]}"
-        return hashlib.md5(unique_string.encode()).hexdigest()
-    
-    def add_documents(
-        self,
-        documents: List[Document],
-        chunk_size: int = 1000,
-        chunk_overlap: int = 200
-    ) -> List[str]:
-        """
-        Fügt Dokumente zum VectorStore hinzu.
-        
-        Args:
-            documents: Liste von LangChain Documents
-            chunk_size: Größe der Text-Chunks
-            chunk_overlap: Überlappung zwischen Chunks
-        
-        Returns:
-            Liste der generierten Dokument-IDs
-        """
-        # Text-Splitter erstellen
-        text_splitter = self.create_text_splitter(chunk_size, chunk_overlap)
-        
-        # Dokumente in Chunks aufteilen
-        chunks = text_splitter.split_documents(documents)
-        
-        # Metadaten mit IBM Mapping anreichern
-        for chunk in chunks:
-            filename = os.path.basename(chunk.metadata.get('source', ''))
-            extracted_metadata = extract_metadata_from_filename(filename, self.ibm_mapping)
-            chunk.metadata.update(extracted_metadata)
-        
-        # Eindeutige IDs generieren
-        ids = [
-            self.generate_doc_id(
-                chunk.page_content,
-                chunk.metadata.get('source', 'unknown'),
-                i
+        # ChromaDB Client erstellen
+        logger.info(f"📂 Initialisiere ChromaDB in: {persist_directory}")
+        self.client = chromadb.PersistentClient(
+            path=str(self.persist_directory),
+            settings=Settings(
+                anonymized_telemetry=False
             )
-            for i, chunk in enumerate(chunks)
-        ]
+        )
         
-        # Zu VectorStore hinzufügen
-        self.vectorstore.add_documents(documents=chunks, ids=ids)
-        
-        logger.info(f"{len(chunks)} Chunks zum VectorStore hinzugefügt")
-        return ids
+        # Collection erstellen oder laden
+        try:
+            self.collection = self.client.get_collection(name=collection_name)
+            logger.info(f"✅ Collection '{collection_name}' geladen ({self.collection.count()} Dokumente)")
+        except Exception:
+            self.collection = self.client.create_collection(
+                name=collection_name,
+                metadata={"description": "IBM Licensing Documents with Product Mapping"}
+            )
+            logger.info(f"✅ Collection '{collection_name}' erstellt")
     
-    def similarity_search(
+    def _get_chunk_params(self, file_name: str, word_count: int) -> tuple:
+        """
+        Bestimmt optimale Chunk-Parameter.
+        
+        Adaptive Mode: Basiert auf Dokumentgröße
+        Fixed Mode: Immer 400/100
+        """
+        # Fixed mode?
+        if hasattr(self, 'fixed_chunk_size'):
+            return self.fixed_chunk_size, self.fixed_chunk_overlap
+        
+        # Adaptive mode: Falls Stats vorhanden, nutze diese
+        if self.doc_stats is not None and file_name in self.doc_stats.index:
+            row = self.doc_stats.loc[file_name]
+            return int(row['recommended_chunk_size']), int(row['recommended_overlap'])
+        
+        # Adaptive mode: Fallback auf Größen-basierte Logik
+        if word_count < 1000:
+            return 500, 125
+        elif word_count < 2000:
+            return 450, 110
+        elif word_count < 3500:
+            return 400, 100
+        elif word_count < 5000:
+            return 350, 90
+        elif word_count < 7000:
+            return 300, 75
+        else:
+            return 250, 60
+    
+    def load_and_process_documents(self, data_dir: Path) -> List[Document]:
+        """
+        Lädt und verarbeitet Dokumente mit adaptiver ODER fester Chunk-Größe.
+        Reichert Metadaten mit IBM Product Mapping an.
+        
+        Args:
+            data_dir: Verzeichnis mit PDF/DOCX-Dateien
+            
+        Returns:
+            Liste von Document-Objekten (Chunks)
+        """
+        all_chunks = []
+        
+        # PDF-Dateien finden
+        pdf_files = list(data_dir.glob("*.pdf"))
+        pdf_files_upper = list(data_dir.glob("*.PDF"))
+        all_pdfs = pdf_files + pdf_files_upper
+        
+        # DOCX-Dateien finden
+        docx_files = list(data_dir.glob("*.docx"))
+        docx_files_upper = list(data_dir.glob("*.DOCX"))
+        all_docx = docx_files + docx_files_upper
+        
+        total_files = len(all_pdfs) + len(all_docx)
+        logger.info(f"📚 Verarbeite {len(all_pdfs)} PDFs + {len(all_docx)} DOCX = {total_files} Dokumente...")
+        
+        # PDFs verarbeiten
+        for pdf_file in all_pdfs:
+            try:
+                # Wortanzahl schätzen
+                import PyPDF2
+                with open(pdf_file, 'rb') as f:
+                    pdf = PyPDF2.PdfReader(f)
+                    text = ""
+                    for page in pdf.pages:
+                        text += page.extract_text()
+                    word_count = len(text.split())
+                
+                # Chunk-Parameter bestimmen
+                chunk_size, overlap = self._get_chunk_params(pdf_file.name, word_count)
+                
+                logger.info(f"📄 {pdf_file.name}: {word_count} Wörter → Chunk {chunk_size}/{overlap}")
+                
+                # PDF laden
+                pdf_loader = PyPDFLoader(str(pdf_file))
+                pages = pdf_loader.load()
+                
+                # Splitter mit aktuellen Parametern
+                splitter = RecursiveCharacterTextSplitter(
+                    chunk_size=chunk_size,
+                    chunk_overlap=overlap,
+                    length_function=len,
+                    separators=["\n\n", "\n", ".", "!", "?", ",", " ", ""]
+                )
+                
+                chunks = splitter.split_documents(pages)
+                
+                # Metadaten erweitern: Standard + IBM Mapping
+                ibm_metadata = extract_metadata_from_filename(pdf_file.name, self.ibm_mapping)
+                
+                for chunk in chunks:
+                    chunk.metadata['word_count'] = word_count
+                    chunk.metadata['chunk_size'] = chunk_size
+                    chunk.metadata['overlap'] = overlap
+                    # IBM Mapping Metadaten hinzufügen
+                    chunk.metadata['manufacturer'] = ibm_metadata['manufacturer']
+                    chunk.metadata['product_name'] = ibm_metadata['product_name']
+                    chunk.metadata['language'] = ibm_metadata['language']
+                    chunk.metadata['license_code'] = ibm_metadata.get('license_code')
+                
+                all_chunks.extend(chunks)
+                logger.info(f"  → {len(chunks)} Chunks erstellt ({ibm_metadata['product_name']})")
+                
+            except Exception as e:
+                logger.error(f"❌ Fehler bei {pdf_file.name}: {e}")
+        
+        # DOCX verarbeiten
+        for docx_file in all_docx:
+            try:
+                # Wortanzahl aus DOCX
+                from docx import Document as DocxDocument
+                doc = DocxDocument(docx_file)
+                text = "\n".join([para.text for para in doc.paragraphs])
+                word_count = len(text.split())
+                
+                # Chunk-Parameter bestimmen
+                chunk_size, overlap = self._get_chunk_params(docx_file.name, word_count)
+                
+                logger.info(f"📄 {docx_file.name} (DOCX): {word_count} Wörter → Chunk {chunk_size}/{overlap}")
+                
+                # DOCX laden
+                docx_loader = Docx2txtLoader(str(docx_file))
+                doc_content = docx_loader.load()
+                
+                splitter = RecursiveCharacterTextSplitter(
+                    chunk_size=chunk_size,
+                    chunk_overlap=overlap,
+                    length_function=len,
+                    separators=["\n\n", "\n", ".", "!", "?", ",", " ", ""]
+                )
+                
+                chunks = splitter.split_documents(doc_content)
+                
+                # Metadaten erweitern
+                ibm_metadata = extract_metadata_from_filename(docx_file.name, self.ibm_mapping)
+                
+                for chunk in chunks:
+                    chunk.metadata['word_count'] = word_count
+                    chunk.metadata['chunk_size'] = chunk_size
+                    chunk.metadata['overlap'] = overlap
+                    chunk.metadata['manufacturer'] = ibm_metadata['manufacturer']
+                    chunk.metadata['product_name'] = ibm_metadata['product_name']
+                    chunk.metadata['language'] = ibm_metadata['language']
+                    chunk.metadata['license_code'] = ibm_metadata.get('license_code')
+                
+                all_chunks.extend(chunks)
+                logger.info(f"  → {len(chunks)} Chunks erstellt")
+                
+            except Exception as e:
+                logger.error(f"❌ Fehler bei {docx_file.name}: {e}")
+        
+        return all_chunks
+    
+    def embed_texts(self, texts: List[str], is_query: bool = False) -> List[List[float]]:
+        """
+        Erstellt Embeddings für Texte.
+        
+        Args:
+            texts: Liste von Texten
+            is_query: True für Queries (nutzt Query-Prefix)
+            
+        Returns:
+            Liste von Embedding-Vektoren
+        """
+        if is_query:
+            # Query-Prefix für bessere Retrieval-Qualität (asymmetrische Suche)
+            texts = [
+                f"Represent this sentence for searching relevant passages: {text}"
+                for text in texts
+            ]
+        
+        # Embeddings erstellen
+        embeddings = self.embedding_model.encode(
+            texts,
+            show_progress_bar=True,
+            convert_to_numpy=True,
+            batch_size=32
+        )
+        
+        return embeddings.tolist()
+    
+    def add_documents(self, documents: List[Document]) -> None:
+        """
+        Fügt Dokumente zur Vektordatenbank hinzu.
+        """
+        if not documents:
+            logger.warning("Keine Dokumente zum Hinzufügen")
+            return
+        
+        logger.info(f"📄 Füge {len(documents)} Dokumente hinzu...")
+        
+        # Texte und Metadaten extrahieren
+        texts = [doc.page_content for doc in documents]
+        metadatas = [doc.metadata for doc in documents]
+        
+        # UUID-IDs generieren
+        ids = [str(uuid.uuid4()) for _ in range(len(documents))]
+        
+        # Embeddings erstellen
+        embeddings = self.embed_texts(texts, is_query=False)
+        
+        # Zu ChromaDB hinzufügen
+        self.collection.add(
+            ids=ids,
+            embeddings=embeddings,
+            documents=texts,
+            metadatas=metadatas
+        )
+        
+        logger.info(f"✅ {len(documents)} Dokumente hinzugefügt")
+    
+    def search(
         self,
         query: str,
-        k: int = 4,
-        filter_dict: Optional[Dict[str, Any]] = None
-    ) -> List[Document]:
+        k: int = 5,
+        filter_metadata: Optional[dict] = None
+    ) -> List[dict]:
         """
-        Führt eine Ähnlichkeitssuche durch.
+        Sucht ähnliche Dokumente.
         
         Args:
             query: Suchanfrage
-            k: Anzahl der zurückzugebenden Ergebnisse
-            filter_dict: Optionale Metadaten-Filter
-        
+            k: Anzahl Ergebnisse
+            filter_metadata: Optional: Filter für Metadaten (z.B. {"manufacturer": "IBM"})
+            
         Returns:
-            Liste von relevanten Dokumenten
+            Liste von Ergebnissen mit Text, Metadaten, Score
         """
-        if filter_dict:
-            return self.vectorstore.similarity_search(
-                query,
-                k=k,
-                filter=filter_dict
-            )
-        return self.vectorstore.similarity_search(query, k=k)
+        logger.info(f"🔍 Suche: '{query}'")
+        
+        # Query-Embedding erstellen (mit Query-Prefix!)
+        query_embedding = self.embed_texts([query], is_query=True)[0]
+        
+        # ChromaDB-Suche
+        results = self.collection.query(
+            query_embeddings=[query_embedding],
+            n_results=k,
+            where=filter_metadata
+        )
+        
+        # Ergebnisse formatieren
+        formatted_results = []
+        for i in range(len(results['ids'][0])):
+            result = {
+                "id": results['ids'][0][i],
+                "text": results['documents'][0][i],
+                "metadata": results['metadatas'][0][i],
+                "score": results['distances'][0][i]
+            }
+            formatted_results.append(result)
+        
+        logger.info(f"✅ {len(formatted_results)} Ergebnisse gefunden")
+        return formatted_results
     
-    def get_retriever(self, search_kwargs: Optional[Dict[str, Any]] = None):
-        """
-        Gibt einen Retriever für RAG zurück.
-        
-        Args:
-            search_kwargs: Optionale Suchparameter
-        
-        Returns:
-            VectorStore Retriever
-        """
-        if search_kwargs is None:
-            search_kwargs = {"k": 4}
-        
-        return self.vectorstore.as_retriever(search_kwargs=search_kwargs)
-    
-    def delete_collection(self):
-        """Löscht die gesamte Collection."""
-        self.vectorstore.delete_collection()
-        logger.info(f"Collection {self.collection_name} gelöscht")
-    
-    def get_collection_stats(self) -> Dict[str, Any]:
-        """
-        Gibt Statistiken über die Collection zurück.
-        
-        Returns:
-            Dictionary mit Statistiken
-        """
-        collection = self.vectorstore._collection
-        count = collection.count()
+    def get_stats(self) -> dict:
+        """Gibt erweiterte Statistiken über die Datenbank zurück."""
+        count = self.collection.count()
         
         return {
-            'document_count': count,
-            'collection_name': self.collection_name,
-            'ibm_products_mapped': len(self.ibm_mapping)
+            "collection_name": self.collection_name,
+            "total_documents": count,
+            "persist_directory": self.persist_directory,
+            "embedding_model": str(self.embedding_model),
+            "embedding_dimensions": self.embedding_model.get_sentence_embedding_dimension(),
+            "adaptive_chunking": self.use_adaptive_chunking,
+            "ibm_products_mapped": len(self.ibm_mapping)  # NEU!
         }
 
 
 # ============================================================================
-# BEISPIEL-VERWENDUNG
+# MAIN: Build + Test
 # ============================================================================
 
-if __name__ == "__main__":
-    # Logging konfigurieren
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
+def main():
+    """
+    Build-Script: Erstellt Vectorstore mit IBM Mapping.
+    Nutze use_adaptive_chunking Flag für Experimente!
+    """
+    from pathlib import Path
     
-    # VectorStore Manager erstellen
-    vs_manager = VectorStoreManager(
-        persist_directory="./chroma_db",
-        collection_name="license_documents",
+    print("=" * 70)
+    print("🏗️  BAUE VECTORSTORE MIT IBM PRODUCT MAPPING + ADAPTIVE CHUNKING")
+    print("=" * 70)
+    
+    # Pfad zu Dokumenten
+    data_dir = Path(__file__).parent.parent / "data"
+    
+    # Vectorstore mit ADAPTIVE Chunking + IBM Mapping
+    vectorstore = LicenseVectorStore(
+        collection_name="ibm_licenses",
+        embedding_model="BAAI/bge-large-en-v1.5",
+        use_adaptive_chunking=True,  # ← Für Fixed: False
         ibm_mapping_file="product_mapping.txt"
     )
     
-    # Beispiel: Metadaten aus Dateinamen extrahieren
+    # Dokumente laden und verarbeiten
+    documents = vectorstore.load_and_process_documents(data_dir)
+    logger.info(f"✅ Gesamt: {len(documents)} Chunks aus {len(list(data_dir.glob('*.pdf')) + list(data_dir.glob('*.PDF')) + list(data_dir.glob('*.docx')) + list(data_dir.glob('*.DOCX')))} Dokumenten")
+    
+    # Zu Vectorstore hinzufügen
+    vectorstore.add_documents(documents)
+    
+    # Stats
+    stats = vectorstore.get_stats()
+    print("=" * 70)
+    print("📊 FERTIG")
+    print("=" * 70)
+    print(f"Collection:        {stats['collection_name']}")
+    print(f"Dokumente:         {stats['total_documents']:,}")
+    print(f"IBM Produkte:      {stats['ibm_products_mapped']}")
+    print(f"Adaptive Chunking: {stats['adaptive_chunking']}")
+    print(f"Gespeichert:       {stats['persist_directory']}")
+    print("=" * 70)
+    
+    # Test-Suche
+    print("\n🔍 TEST-SUCHE:")
+    print()
+    results = vectorstore.search("Was ist Sub-Capacity Lizenzierung?", k=3)
+    
+    for i, result in enumerate(results, 1):
+        print(f"{i}. Score: {result['score']:.4f}")
+        print(f"   Produkt: {result['metadata'].get('product_name', 'N/A')}")
+        print(f"   Hersteller: {result['metadata'].get('manufacturer', 'N/A')}")
+        print(f"   Quelle: {result['metadata']['source']}")
+        print(f"   Text: {result['text'][:200]}...\n")
+    
+    # Bonus: Test IBM Mapping-Extraktion
+    print("\n📋 IBM MAPPING TEST:")
+    print()
     test_filenames = [
         "L-CHSG-4QYF8X_en.pdf",
         "L-YRHY-YWPJ3V_de.pdf",
-        "Microsoft_Office_365_de.pdf",
-        "unknown_document.pdf"
+        "Microsoft_Office_365.pdf"
     ]
     
-    print("\n=== Metadaten-Extraktion Beispiele ===\n")
     for filename in test_filenames:
-        metadata = extract_metadata_from_filename(filename, vs_manager.ibm_mapping)
+        metadata = extract_metadata_from_filename(filename, vectorstore.ibm_mapping)
         print(f"Datei: {filename}")
-        print(f"  Hersteller: {metadata['manufacturer']}")
-        print(f"  Produkt: {metadata['product_name']}")
-        print(f"  Sprache: {metadata['language']}")
-        print(f"  License Code: {metadata.get('license_code', 'N/A')}")
+        print(f"  → Produkt: {metadata['product_name']}")
+        print(f"  → Hersteller: {metadata['manufacturer']}")
+        print(f"  → Sprache: {metadata['language']}")
         print()
-    
-    # Statistiken ausgeben
-    stats = vs_manager.get_collection_stats()
-    print(f"\n=== VectorStore Statistiken ===")
-    print(f"Collection: {stats['collection_name']}")
-    print(f"Dokumente: {stats['document_count']}")
-    print(f"IBM Produkte im Mapping: {stats['ibm_products_mapped']}")
+
+
+if __name__ == "__main__":
+    main()

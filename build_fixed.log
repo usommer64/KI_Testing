@@ -1,0 +1,168 @@
+nohup: ignoring input
+INFO:__main__:======================================================================
+INFO:__main__:🏗️  BAUE VECTORSTORE MIT FESTER CHUNK-SIZE: 400/100
+INFO:__main__:======================================================================
+INFO:vectorstore:📥 Lade Embedding-Modell: BAAI/bge-large-en-v1.5
+INFO:sentence_transformers.SentenceTransformer:Load pretrained SentenceTransformer: BAAI/bge-large-en-v1.5
+INFO:sentence_transformers.SentenceTransformer:Use pytorch device_name: cpu
+INFO:vectorstore:✅ Modell geladen: 1024 Dimensionen
+INFO:vectorstore:🔧 EXPERIMENT: Feste Chunk-Größe 400/100 (kein Adaptive Chunking)
+INFO:vectorstore:📂 Initialisiere ChromaDB in: /workspaces/KI_Testing/.devcontainer/LAS/data/chroma_db
+ERROR:chromadb.telemetry.product.posthog:Failed to send telemetry event ClientStartEvent: capture() takes 1 positional argument but 3 were given
+ERROR:chromadb.telemetry.product.posthog:Failed to send telemetry event ClientCreateCollectionEvent: capture() takes 1 positional argument but 3 were given
+INFO:vectorstore:✅ Collection 'ibm_licenses_fixed' erstellt
+INFO:vectorstore:📚 Verarbeite 70 PDFs + 1 DOCX = 71 Dokumente...
+INFO:vectorstore:📄 L-GNAN-K8MR2V_en.pdf: 1913 Wörter → Chunk 400/100
+INFO:vectorstore:  → 48 Chunks erstellt
+INFO:vectorstore:📄 IBM-License-Measurement-Methodology-IBM-Content-Manager-Enterprise-Edition.pdf: 4981 Wörter → Chunk 400/100
+INFO:vectorstore:  → 122 Chunks erstellt
+INFO:vectorstore:📄 L-PLCA-U468K5_en.pdf: 1880 Wörter → Chunk 400/100
+INFO:vectorstore:  → 48 Chunks erstellt
+INFO:vectorstore:📄 L-ZXQY-ZTTXEF_en.pdf: 2899 Wörter → Chunk 400/100
+INFO:vectorstore:  → 69 Chunks erstellt
+INFO:vectorstore:📄 L-YPZT-N6DZVW_en.pdf: 1517 Wörter → Chunk 400/100
+INFO:vectorstore:  → 36 Chunks erstellt
+INFO:vectorstore:📄 Microsoft_Education Solution Licensing Guidance.pdf: 5264 Wörter → Chunk 400/100
+INFO:vectorstore:  → 112 Chunks erstellt
+INFO:vectorstore:📄 L-VXDF-VPYKN6_en.pdf: 3069 Wörter → Chunk 400/100
+INFO:vectorstore:  → 71 Chunks erstellt
+INFO:vectorstore:📄 L-PPVD-QW49JG_en.pdf: 953 Wörter → Chunk 400/100
+INFO:vectorstore:  → 23 Chunks erstellt
+INFO:vectorstore:📄 L-RYLZ-KZMVZY_en.pdf: 1476 Wörter → Chunk 400/100
+INFO:vectorstore:  → 36 Chunks erstellt
+INFO:vectorstore:📄 IBM_BYSOL_August2024.pdf: 3116 Wörter → Chunk 400/100
+INFO:vectorstore:  → 70 Chunks erstellt
+INFO:vectorstore:📄 L-DKPT-XTGT7Z_en.pdf: 1601 Wörter → Chunk 400/100
+INFO:vectorstore:  → 40 Chunks erstellt
+INFO:vectorstore:📄 IBM_CloudPaks.pdf: 5735 Wörter → Chunk 400/100
+INFO:vectorstore:  → 124 Chunks erstellt
+INFO:vectorstore:📄 L-CVUH-LYWEQZ_en.pdf: 2714 Wörter → Chunk 400/100
+INFO:vectorstore:  → 65 Chunks erstellt
+INFO:vectorstore:📄 L-CHSG-4QYF8X_en.pdf: 772 Wörter → Chunk 400/100
+INFO:vectorstore:  → 20 Chunks erstellt
+INFO:vectorstore:📄 IBM-License-Measurement-Methodology-IBM-Cloud-Pak-for-Data.pdf: 7447 Wörter → Chunk 400/100
+INFO:vectorstore:  → 173 Chunks erstellt
+INFO:vectorstore:📄 L-PZQM-YVMW6A_en.pdf: 879 Wörter → Chunk 400/100
+INFO:vectorstore:  → 23 Chunks erstellt
+INFO:vectorstore:📄 IBM_Container_Licensing.pdf: 6123 Wörter → Chunk 400/100
+INFO:vectorstore:  → 134 Chunks erstellt
+INFO:vectorstore:📄 IBM_Licensing_Models_Passport Advantage.pdf: 2362 Wörter → Chunk 400/100
+INFO:vectorstore:  → 69 Chunks erstellt
+INFO:vectorstore:📄 L-TVNG-4T5TED_en.pdf: 576 Wörter → Chunk 400/100
+INFO:vectorstore:  → 14 Chunks erstellt
+INFO:vectorstore:📄 Microsoft_Select Plus Government Licensing Guidance.pdf: 3059 Wörter → Chunk 400/100
+INFO:vectorstore:  → 70 Chunks erstellt
+INFO:vectorstore:📄 L-SJZL-NMUUCT_en.pdf: 5122 Wörter → Chunk 400/100
+INFO:vectorstore:  → 126 Chunks erstellt
+INFO:vectorstore:📄 L-WPGB-QZXQKF_en.pdf: 3426 Wörter → Chunk 400/100
+INFO:vectorstore:  → 84 Chunks erstellt
+INFO:vectorstore:📄 L-NQEZ-XC267Y_en.pdf: 1563 Wörter → Chunk 400/100
+INFO:vectorstore:  → 39 Chunks erstellt
+INFO:vectorstore:📄 L-WGQQ-J8MEWE_en.pdf: 1226 Wörter → Chunk 400/100
+INFO:vectorstore:  → 28 Chunks erstellt
+INFO:vectorstore:📄 L-WKKU-ACBC7A_en.pdf: 922 Wörter → Chunk 400/100
+INFO:vectorstore:  → 22 Chunks erstellt
+INFO:vectorstore:📄 L-WPVL-Z9BB49_en.pdf: 4077 Wörter → Chunk 400/100
+INFO:vectorstore:  → 101 Chunks erstellt
+INFO:vectorstore:📄 L-PXVP-93U8VP_en.pdf: 4828 Wörter → Chunk 400/100
+INFO:vectorstore:  → 115 Chunks erstellt
+INFO:vectorstore:📄 Microsoft_Unattended License Licensing Guidance.pdf: 1479 Wörter → Chunk 400/100
+INFO:vectorstore:  → 27 Chunks erstellt
+INFO:vectorstore:📄 L-UHHQ-C7AA2R_en.pdf: 3166 Wörter → Chunk 400/100
+INFO:vectorstore:  → 78 Chunks erstellt
+INFO:vectorstore:📄 L-MAZZ-49RVWE_en.pdf: 3370 Wörter → Chunk 400/100
+INFO:vectorstore:  → 81 Chunks erstellt
+INFO:vectorstore:📄 L-NNQF-LLZ9EV_en.pdf: 4115 Wörter → Chunk 400/100
+INFO:vectorstore:  → 102 Chunks erstellt
+INFO:vectorstore:📄 Microsoft_Licensing_brief_PLT_Robotic_Process_Automation_in_Power_Automate_UI_flows.pdf: 2818 Wörter → Chunk 400/100
+INFO:vectorstore:  → 62 Chunks erstellt
+INFO:vectorstore:📄 L-LSCS-K9WBD7_en.pdf: 1809 Wörter → Chunk 400/100
+INFO:vectorstore:  → 44 Chunks erstellt
+INFO:vectorstore:📄 L-LCKC-79KSJP_en.pdf: 5174 Wörter → Chunk 400/100
+INFO:vectorstore:  → 126 Chunks erstellt
+INFO:vectorstore:📄 IBM_Backup (5.1.24).pdf: 4268 Wörter → Chunk 400/100
+INFO:vectorstore:  → 97 Chunks erstellt
+INFO:vectorstore:📄 Microsoft_Server & Cloud Enrollment Licensing Guidance.pdf: 3273 Wörter → Chunk 400/100
+INFO:vectorstore:  → 71 Chunks erstellt
+INFO:vectorstore:📄 L-RJMT-S4EGHA_en.pdf: 958 Wörter → Chunk 400/100
+INFO:vectorstore:  → 20 Chunks erstellt
+INFO:vectorstore:📄 IBMLicensingWebSphere.pdf: 5606 Wörter → Chunk 400/100
+INFO:vectorstore:  → 140 Chunks erstellt
+INFO:vectorstore:📄 IBM_Virtualization_Capacity_August2024.pdf: 4718 Wörter → Chunk 400/100
+INFO:vectorstore:  → 111 Chunks erstellt
+INFO:vectorstore:📄 L-QJQQ-SPK7DK_en.pdf: 1366 Wörter → Chunk 400/100
+INFO:vectorstore:  → 33 Chunks erstellt
+INFO:vectorstore:📄 BundlingSupporting.pdf: 5029 Wörter → Chunk 400/100
+INFO:vectorstore:  → 115 Chunks erstellt
+INFO:vectorstore:📄 L-YRHY-YWPJ3V_de.pdf: 1626 Wörter → Chunk 400/100
+INFO:vectorstore:  → 46 Chunks erstellt
+INFO:vectorstore:📄 L-MVUP-SYDLFM_en.pdf: 2892 Wörter → Chunk 400/100
+INFO:vectorstore:  → 78 Chunks erstellt
+INFO:vectorstore:📄 IBMLicensingContentManager.pdf: 4670 Wörter → Chunk 400/100
+INFO:vectorstore:  → 117 Chunks erstellt
+INFO:vectorstore:📄 IBM_Non_Productive_Usage.pdf: 2990 Wörter → Chunk 400/100
+INFO:vectorstore:  → 70 Chunks erstellt
+INFO:vectorstore:📄 L-YKBN-9H2KET_en.pdf: 3111 Wörter → Chunk 400/100
+INFO:vectorstore:  → 75 Chunks erstellt
+INFO:vectorstore:📄 L-YRMY-8LEF7Q_en.pdf: 3032 Wörter → Chunk 400/100
+INFO:vectorstore:  → 73 Chunks erstellt
+INFO:vectorstore:📄 L-CVAL-UERCZG_en.pdf: 689 Wörter → Chunk 400/100
+INFO:vectorstore:  → 17 Chunks erstellt
+INFO:vectorstore:📄 IBM_Licensing_Tools.pdf: 10053 Wörter → Chunk 400/100
+INFO:vectorstore:  → 229 Chunks erstellt
+INFO:vectorstore:📄 Microsoft_Select Plus Academic Licensing Guidance.pdf: 3257 Wörter → Chunk 400/100
+INFO:vectorstore:  → 72 Chunks erstellt
+INFO:vectorstore:📄 Microsoft_Outsourcing Licensing Guidance.PDF: 824 Wörter → Chunk 400/100
+INFO:vectorstore:  → 22 Chunks erstellt
+INFO:vectorstore:📄 Microsoft_Self-Hosted Applications Licensing Guidance.PDF: 1769 Wörter → Chunk 400/100
+INFO:vectorstore:  → 41 Chunks erstellt
+INFO:vectorstore:📄 Microsoft_Server Virtualization Licensing Guidance.PDF: 5835 Wörter → Chunk 400/100
+INFO:vectorstore:  → 125 Chunks erstellt
+INFO:vectorstore:📄 Microsoft_Qualified Devices & Users Licensing Guidance.PDF: 1343 Wörter → Chunk 400/100
+INFO:vectorstore:  → 30 Chunks erstellt
+INFO:vectorstore:📄 Microsoft_Windows Server 2025 Licensing Guidance.PDF: 6787 Wörter → Chunk 400/100
+INFO:vectorstore:  → 156 Chunks erstellt
+INFO:vectorstore:📄 Microsoft_Office LTSC Licensing Guidance.PDF: 1683 Wörter → Chunk 400/100
+INFO:vectorstore:  → 38 Chunks erstellt
+INFO:vectorstore:📄 Microsoft_Reimaging Rights Licensing Guidance.PDF: 1808 Wörter → Chunk 400/100
+INFO:vectorstore:  → 42 Chunks erstellt
+INFO:vectorstore:📄 Microsoft_Services Provider Licensing Agreement (SPLA) Program Guidance.PDF: 2609 Wörter → Chunk 400/100
+INFO:vectorstore:  → 58 Chunks erstellt
+INFO:vectorstore:📄 Microsoft_Power Platform Licensing Guidance.PDF: 11817 Wörter → Chunk 400/100
+INFO:vectorstore:  → 259 Chunks erstellt
+INFO:vectorstore:📄 Microsoft_Visual Studio Licensing Guidance.PDF: 12450 Wörter → Chunk 400/100
+INFO:vectorstore:  → 273 Chunks erstellt
+INFO:vectorstore:📄 Microsoft_Azure Customer Solution Licensing Guidance.PDF: 1932 Wörter → Chunk 400/100
+INFO:vectorstore:  → 46 Chunks erstellt
+INFO:vectorstore:📄 Microsoft_Subscription Suites Licensing Guidance.PDF: 1634 Wörter → Chunk 400/100
+INFO:vectorstore:  → 36 Chunks erstellt
+INFO:vectorstore:📄 Microsoft_Step-Up Licenses Licensing Guidance.PDF: 1020 Wörter → Chunk 400/100
+INFO:vectorstore:  → 24 Chunks erstellt
+INFO:vectorstore:📄 Microsoft_Windows 11 Qualifying OS Licensing Guidance.PDF: 895 Wörter → Chunk 400/100
+INFO:vectorstore:  → 23 Chunks erstellt
+INFO:vectorstore:📄 Microsoft_Windows Server Virtualization Licensing Guidance.PDF: 3412 Wörter → Chunk 400/100
+INFO:vectorstore:  → 74 Chunks erstellt
+INFO:vectorstore:📄 Microsoft_Multiplexing Licensing Guidance.PDF: 3510 Wörter → Chunk 400/100
+INFO:vectorstore:  → 73 Chunks erstellt
+INFO:vectorstore:📄 Microsoft_Windows 11 Virtual Desktop Licensing Guidance.PDF: 1941 Wörter → Chunk 400/100
+INFO:vectorstore:  → 42 Chunks erstellt
+INFO:vectorstore:📄 Microsoft_SQL Server Licensing Guidance.PDF: 4766 Wörter → Chunk 400/100
+INFO:vectorstore:  → 100 Chunks erstellt
+INFO:vectorstore:📄 Microsoft_SharePoint Server Licensing Guidance.PDF: 1141 Wörter → Chunk 400/100
+INFO:vectorstore:  → 28 Chunks erstellt
+INFO:vectorstore:📄 Microsoft_Dragon Copilot Licensing Guidance.PDF: 1271 Wörter → Chunk 400/100
+INFO:vectorstore:  → 32 Chunks erstellt
+INFO:vectorstore:📄 Microsoft_ProductTerms(MOSA)(English)(02092026).docx (DOCX): 53883 Wörter → Chunk 400/100
+INFO:vectorstore:  → 1634 Chunks erstellt
+INFO:__main__:✅ Gesamt: 6922 Chunks
+INFO:vectorstore:📄 Füge 6922 Dokumente hinzu...
+Batches:   0%|          | 0/217 [00:00<?, ?it/s]Batches:   0%|          | 1/217 [00:26<1:35:41, 26.58s/it]Batches:   1%|          | 2/217 [00:43<1:13:52, 20.62s/it]Batches:   1%|▏         | 3/217 [00:54<58:41, 16.46s/it]  Batches:   2%|▏         | 4/217 [01:08<55:26, 15.62s/it]Batches:   2%|▏         | 5/217 [01:22<52:36, 14.89s/it]Batches:   3%|▎         | 6/217 [01:38<53:26, 15.20s/it]Batches:   3%|▎         | 7/217 [01:55<55:32, 15.87s/it]Batches:   4%|▎         | 8/217 [02:12<56:18, 16.16s/it]Batches:   4%|▍         | 9/217 [02:52<1:22:25, 23.77s/it]Batches:   5%|▍         | 10/217 [03:07<1:11:57, 20.86s/it]Batches:   5%|▌         | 11/217 [03:21<1:04:40, 18.84s/it]Batches:   6%|▌         | 12/217 [03:38<1:02:20, 18.25s/it]Batches:   6%|▌         | 13/217 [04:06<1:11:47, 21.11s/it]Batches:   6%|▋         | 14/217 [04:21<1:05:56, 19.49s/it]Batches:   7%|▋         | 15/217 [04:38<1:02:31, 18.57s/it]Batches:   7%|▋         | 16/217 [04:54<59:58, 17.90s/it]  Batches:   8%|▊         | 17/217 [05:07<54:36, 16.38s/it]Batches:   8%|▊         | 18/217 [05:24<55:14, 16.65s/it]Batches:   9%|▉         | 19/217 [05:39<52:46, 15.99s/it]Batches:   9%|▉         | 20/217 [05:55<52:31, 16.00s/it]Batches:  10%|▉         | 21/217 [06:08<50:06, 15.34s/it]Batches:  10%|█         | 22/217 [06:38<1:03:15, 19.46s/it]Batches:  11%|█         | 23/217 [07:03<1:09:02, 21.35s/it]Batches:  11%|█         | 24/217 [07:54<1:36:51, 30.11s/it]Batches:  12%|█▏        | 25/217 [08:12<1:24:48, 26.50s/it]Batches:  12%|█▏        | 26/217 [08:27<1:13:35, 23.12s/it]Batches:  12%|█▏        | 27/217 [08:43<1:06:28, 20.99s/it]Batches:  13%|█▎        | 28/217 [08:56<57:58, 18.41s/it]  Batches:  13%|█▎        | 29/217 [09:12<55:45, 17.80s/it]Batches:  14%|█▍        | 30/217 [09:24<49:48, 15.98s/it]Batches:  14%|█▍        | 31/217 [09:37<46:41, 15.06s/it]Batches:  15%|█▍        | 32/217 [09:57<51:17, 16.63s/it]Batches:  15%|█▌        | 33/217 [10:22<58:58, 19.23s/it]Batches:  16%|█▌        | 34/217 [10:49<1:05:59, 21.64s/it]Batches:  16%|█▌        | 35/217 [11:12<1:06:48, 22.02s/it]Batches:  17%|█▋        | 36/217 [11:24<57:04, 18.92s/it]  Batches:  17%|█▋        | 37/217 [11:42<55:48, 18.60s/it]Batches:  18%|█▊        | 38/217 [12:00<55:00, 18.44s/it]Batches:  18%|█▊        | 39/217 [12:24<1:00:05, 20.25s/it]Batches:  18%|█▊        | 40/217 [12:36<52:20, 17.74s/it]  Batches:  19%|█▉        | 41/217 [12:51<49:39, 16.93s/it]Batches:  19%|█▉        | 42/217 [13:04<45:25, 15.57s/it]Batches:  20%|█▉        | 43/217 [13:15<41:30, 14.31s/it]Batches:  20%|██        | 44/217 [13:43<53:00, 18.38s/it]Batches:  21%|██        | 45/217 [13:56<47:41, 16.64s/it]Batches:  21%|██        | 46/217 [14:13<48:16, 16.94s/it]Batches:  22%|██▏       | 47/217 [14:52<1:06:37, 23.51s/it]Batches:  22%|██▏       | 48/217 [15:07<58:41, 20.84s/it]  Batches:  23%|██▎       | 49/217 [15:23<54:13, 19.37s/it]Batches:  23%|██▎       | 50/217 [15:35<48:11, 17.31s/it]Batches:  24%|██▎       | 51/217 [15:48<43:53, 15.87s/it]Batches:  24%|██▍       | 52/217 [16:02<42:17, 15.38s/it]Batches:  24%|██▍       | 53/217 [16:40<1:00:52, 22.27s/it]Batches:  25%|██▍       | 54/217 [16:52<52:12, 19.22s/it]  Batches:  25%|██▌       | 55/217 [17:09<49:45, 18.43s/it]Batches:  26%|██▌       | 56/217 [17:23<45:49, 17.08s/it]Batches:  26%|██▋       | 57/217 [17:37<43:19, 16.25s/it]Batches:  27%|██▋       | 58/217 [17:50<40:10, 15.16s/it]Batches:  27%|██▋       | 59/217 [18:02<37:29, 14.24s/it]Batches:  28%|██▊       | 60/217 [18:41<57:05, 21.82s/it]Batches:  28%|██▊       | 61/217 [18:53<48:47, 18.77s/it]Batches:  29%|██▊       | 62/217 [19:05<43:06, 16.69s/it]Batches:  29%|██▉       | 63/217 [19:16<38:59, 15.19s/it]Batches:  29%|██▉       | 64/217 [19:28<36:01, 14.13s/it]Batches:  30%|██▉       | 65/217 [19:44<37:15, 14.71s/it]Batches:  30%|███       | 66/217 [20:01<38:44, 15.40s/it]Batches:  31%|███       | 67/217 [20:16<38:03, 15.22s/it]Batches:  31%|███▏      | 68/217 [20:31<37:19, 15.03s/it]Batches:  32%|███▏      | 69/217 [20:48<38:38, 15.67s/it]Batches:  32%|███▏      | 70/217 [21:03<37:55, 15.48s/it]Batches:  33%|███▎      | 71/217 [21:18<37:27, 15.39s/it]Batches:  33%|███▎      | 72/217 [21:32<35:54, 14.86s/it]Batches:  34%|███▎      | 73/217 [21:45<34:37, 14.43s/it]Batches:  34%|███▍      | 74/217 [22:01<35:40, 14.97s/it]Batches:  35%|███▍      | 75/217 [22:15<34:16, 14.49s/it]Batches:  35%|███▌      | 76/217 [22:30<34:38, 14.74s/it]Batches:  35%|███▌      | 77/217 [22:45<34:21, 14.72s/it]Batches:  36%|███▌      | 78/217 [22:58<33:19, 14.38s/it]Batches:  36%|███▋      | 79/217 [23:10<31:26, 13.67s/it]Batches:  37%|███▋      | 80/217 [23:25<32:13, 14.12s/it]Batches:  37%|███▋      | 81/217 [23:40<32:10, 14.20s/it]Batches:  38%|███▊      | 82/217 [23:50<29:32, 13.13s/it]Batches:  38%|███▊      | 83/217 [24:02<28:08, 12.60s/it]Batches:  39%|███▊      | 84/217 [24:18<30:18, 13.67s/it]Batches:  39%|███▉      | 85/217 [24:44<38:17, 17.41s/it]Batches:  40%|███▉      | 86/217 [24:57<34:47, 15.94s/it]Batches:  40%|████      | 87/217 [25:22<40:37, 18.75s/it]Batches:  41%|████      | 88/217 [25:37<37:47, 17.58s/it]Batches:  41%|████      | 89/217 [25:49<34:23, 16.12s/it]Batches:  41%|████▏     | 90/217 [26:01<30:59, 14.64s/it]Batches:  42%|████▏     | 91/217 [26:16<31:26, 14.97s/it]Batches:  42%|████▏     | 92/217 [26:29<29:40, 14.24s/it]Batches:  43%|████▎     | 93/217 [26:41<28:15, 13.68s/it]Batches:  43%|████▎     | 94/217 [26:57<29:08, 14.22s/it]Batches:  44%|████▍     | 95/217 [27:09<27:52, 13.71s/it]Batches:  44%|████▍     | 96/217 [27:24<28:13, 14.00s/it]Batches:  45%|████▍     | 97/217 [27:36<26:40, 13.34s/it]Batches:  45%|████▌     | 98/217 [27:47<24:57, 12.58s/it]Batches:  46%|████▌     | 99/217 [28:13<32:42, 16.63s/it]Batches:  46%|████▌     | 100/217 [28:24<29:28, 15.11s/it]Batches:  47%|████▋     | 101/217 [28:39<28:54, 14.96s/it]Batches:  47%|████▋     | 102/217 [28:49<25:46, 13.45s/it]Batches:  47%|████▋     | 103/217 [29:00<24:08, 12.71s/it]Batches:  48%|████▊     | 104/217 [29:21<29:02, 15.42s/it]Batches:  48%|████▊     | 105/217 [29:36<28:30, 15.27s/it]Batches:  49%|████▉     | 106/217 [29:50<27:08, 14.67s/it]Batches:  49%|████▉     | 107/217 [30:03<26:23, 14.40s/it]Batches:  50%|████▉     | 108/217 [30:14<23:56, 13.18s/it]Batches:  50%|█████     | 109/217 [30:29<24:56, 13.85s/it]Batches:  51%|█████     | 110/217 [30:45<25:34, 14.34s/it]Batches:  51%|█████     | 111/217 [30:57<24:30, 13.88s/it]Batches:  52%|█████▏    | 112/217 [31:09<22:56, 13.11s/it]Batches:  52%|█████▏    | 113/217 [31:34<28:59, 16.72s/it]Batches:  53%|█████▎    | 114/217 [31:49<27:38, 16.10s/it]Batches:  53%|█████▎    | 115/217 [31:59<24:41, 14.52s/it]Batches:  53%|█████▎    | 116/217 [32:13<23:50, 14.16s/it]Batches:  54%|█████▍    | 117/217 [32:27<23:43, 14.23s/it]Batches:  54%|█████▍    | 118/217 [32:39<22:23, 13.57s/it]Batches:  55%|█████▍    | 119/217 [32:54<22:45, 13.93s/it]Batches:  55%|█████▌    | 120/217 [33:22<29:10, 18.05s/it]Batches:  56%|█████▌    | 121/217 [33:35<26:45, 16.72s/it]Batches:  56%|█████▌    | 122/217 [33:59<29:51, 18.86s/it]Batches:  57%|█████▋    | 123/217 [34:10<25:57, 16.57s/it]Batches:  57%|█████▋    | 124/217 [34:25<24:39, 15.91s/it]Batches:  58%|█████▊    | 125/217 [34:37<22:46, 14.86s/it]Batches:  58%|█████▊    | 126/217 [34:51<22:02, 14.53s/it]Batches:  59%|█████▊    | 127/217 [35:15<26:15, 17.50s/it]Batches:  59%|█████▉    | 128/217 [35:29<24:29, 16.52s/it]Batches:  59%|█████▉    | 129/217 [35:43<23:00, 15.69s/it]Batches:  60%|█████▉    | 130/217 [35:58<22:10, 15.29s/it]Batches:  60%|██████    | 131/217 [36:12<21:41, 15.14s/it]Batches:  61%|██████    | 132/217 [36:26<20:56, 14.78s/it]Batches:  61%|██████▏   | 133/217 [36:41<20:33, 14.69s/it]Batches:  62%|██████▏   | 134/217 [36:55<20:10, 14.58s/it]Batches:  62%|██████▏   | 135/217 [37:10<20:10, 14.76s/it]Batches:  63%|██████▎   | 136/217 [37:41<26:16, 19.46s/it]Batches:  63%|██████▎   | 137/217 [37:54<23:26, 17.58s/it]Batches:  64%|██████▎   | 138/217 [38:08<21:42, 16.49s/it]Batches:  64%|██████▍   | 139/217 [38:22<20:23, 15.68s/it]Batches:  65%|██████▍   | 140/217 [38:36<19:28, 15.17s/it]Batches:  65%|██████▍   | 141/217 [38:51<19:06, 15.08s/it]Batches:  65%|██████▌   | 142/217 [39:04<18:22, 14.70s/it]Batches:  66%|██████▌   | 143/217 [39:18<17:51, 14.49s/it]Batches:  66%|██████▋   | 144/217 [39:28<15:48, 12.99s/it]Batches:  67%|██████▋   | 145/217 [39:42<15:49, 13.19s/it]Batches:  67%|██████▋   | 146/217 [39:56<15:58, 13.49s/it]Batches:  68%|██████▊   | 147/217 [40:10<16:02, 13.75s/it]Batches:  68%|██████▊   | 148/217 [40:23<15:42, 13.66s/it]Batches:  69%|██████▊   | 149/217 [40:37<15:19, 13.53s/it]Batches:  69%|██████▉   | 150/217 [40:49<14:40, 13.15s/it]Batches:  70%|██████▉   | 151/217 [40:59<13:35, 12.35s/it]Batches:  70%|███████   | 152/217 [41:10<12:47, 11.80s/it]Batches:  71%|███████   | 153/217 [41:21<12:16, 11.51s/it]Batches:  71%|███████   | 154/217 [41:38<13:50, 13.19s/it]Batches:  71%|███████▏  | 155/217 [41:49<12:56, 12.53s/it]Batches:  72%|███████▏  | 156/217 [41:59<11:50, 11.65s/it]Batches:  72%|███████▏  | 157/217 [42:09<11:23, 11.39s/it]Batches:  73%|███████▎  | 158/217 [42:19<10:37, 10.80s/it]Batches:  73%|███████▎  | 159/217 [42:34<11:38, 12.04s/it]Batches:  74%|███████▎  | 160/217 [42:48<12:08, 12.78s/it]Batches:  74%|███████▍  | 161/217 [43:02<12:16, 13.14s/it]Batches:  75%|███████▍  | 162/217 [43:13<11:16, 12.30s/it]Batches:  75%|███████▌  | 163/217 [43:22<10:17, 11.44s/it]Batches:  76%|███████▌  | 164/217 [43:43<12:40, 14.34s/it]Batches:  76%|███████▌  | 165/217 [44:05<14:18, 16.52s/it]Batches:  76%|███████▋  | 166/217 [44:14<12:15, 14.42s/it]Batches:  77%|███████▋  | 167/217 [44:23<10:37, 12.75s/it]Batches:  77%|███████▋  | 168/217 [44:32<09:33, 11.70s/it]Batches:  78%|███████▊  | 169/217 [44:41<08:38, 10.79s/it]Batches:  78%|███████▊  | 170/217 [44:51<08:20, 10.65s/it]Batches:  79%|███████▉  | 171/217 [45:01<07:57, 10.38s/it]Batches:  79%|███████▉  | 172/217 [45:09<07:18,  9.74s/it]Batches:  80%|███████▉  | 173/217 [45:18<07:01,  9.58s/it]Batches:  80%|████████  | 174/217 [45:27<06:42,  9.37s/it]Batches:  81%|████████  | 175/217 [45:39<06:56,  9.92s/it]Batches:  81%|████████  | 176/217 [45:53<07:46, 11.38s/it]Batches:  82%|████████▏ | 177/217 [46:05<07:39, 11.49s/it]Batches:  82%|████████▏ | 178/217 [46:15<07:14, 11.13s/it]Batches:  82%|████████▏ | 179/217 [46:24<06:31, 10.31s/it]Batches:  83%|████████▎ | 180/217 [46:55<10:14, 16.62s/it]Batches:  83%|████████▎ | 181/217 [47:05<08:42, 14.53s/it]Batches:  84%|████████▍ | 182/217 [47:33<10:51, 18.61s/it]Batches:  84%|████████▍ | 183/217 [48:00<12:02, 21.26s/it]Batches:  85%|████████▍ | 184/217 [48:09<09:38, 17.54s/it]Batches:  85%|████████▌ | 185/217 [48:36<10:50, 20.32s/it]Batches:  86%|████████▌ | 186/217 [48:48<09:08, 17.69s/it]Batches:  86%|████████▌ | 187/217 [48:59<07:53, 15.78s/it]Batches:  87%|████████▋ | 188/217 [49:09<06:46, 14.03s/it]Batches:  87%|████████▋ | 189/217 [49:17<05:40, 12.15s/it]Batches:  88%|████████▊ | 190/217 [49:28<05:19, 11.82s/it]Batches:  88%|████████▊ | 191/217 [49:56<07:14, 16.72s/it]Batches:  88%|████████▊ | 192/217 [50:08<06:26, 15.45s/it]Batches:  89%|████████▉ | 193/217 [50:35<07:31, 18.82s/it]Batches:  89%|████████▉ | 194/217 [50:45<06:12, 16.18s/it]Batches:  90%|████████▉ | 195/217 [50:56<05:24, 14.74s/it]Batches:  90%|█████████ | 196/217 [51:06<04:38, 13.24s/it]Batches:  91%|█████████ | 197/217 [51:28<05:16, 15.80s/it]Batches:  91%|█████████ | 198/217 [51:34<04:07, 13.02s/it]Batches:  92%|█████████▏| 199/217 [51:41<03:17, 10.97s/it]Batches:  92%|█████████▏| 200/217 [52:01<03:51, 13.65s/it]Batches:  93%|█████████▎| 201/217 [52:08<03:07, 11.69s/it]Batches:  93%|█████████▎| 202/217 [52:17<02:44, 10.94s/it]Batches:  94%|█████████▎| 203/217 [52:23<02:13,  9.55s/it]Batches:  94%|█████████▍| 204/217 [52:33<02:06,  9.70s/it]Batches:  94%|█████████▍| 205/217 [52:44<02:00, 10.03s/it]Batches:  95%|█████████▍| 206/217 [52:49<01:33,  8.52s/it]Batches:  95%|█████████▌| 207/217 [52:59<01:28,  8.87s/it]Batches:  96%|█████████▌| 208/217 [53:14<01:36, 10.67s/it]Batches:  96%|█████████▋| 209/217 [53:18<01:09,  8.67s/it]Batches:  97%|█████████▋| 210/217 [53:22<00:52,  7.54s/it]Batches:  97%|█████████▋| 211/217 [53:30<00:45,  7.57s/it]Batches:  98%|█████████▊| 212/217 [53:37<00:36,  7.24s/it]Batches:  98%|█████████▊| 213/217 [53:43<00:27,  6.93s/it]Batches:  99%|█████████▊| 214/217 [53:44<00:15,  5.29s/it]Batches:  99%|█████████▉| 215/217 [53:46<00:08,  4.16s/it]Batches: 100%|█████████▉| 216/217 [53:47<00:03,  3.26s/it]Batches: 100%|██████████| 217/217 [53:47<00:00,  2.36s/it]Batches: 100%|██████████| 217/217 [53:47<00:00, 14.87s/it]
+ERROR:chromadb.telemetry.product.posthog:Failed to send telemetry event CollectionAddEvent: capture() takes 1 positional argument but 3 were given
+INFO:vectorstore:✅ 6922 Dokumente hinzugefügt
+INFO:__main__:======================================================================
+INFO:__main__:📊 FERTIG
+INFO:__main__:======================================================================
+INFO:__main__:Collection:  ibm_licenses_fixed
+INFO:__main__:Dokumente:   6,922
+INFO:__main__:Adaptive:    False
+INFO:__main__:======================================================================

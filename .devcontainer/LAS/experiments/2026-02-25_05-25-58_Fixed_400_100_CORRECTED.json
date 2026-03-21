@@ -1,0 +1,57 @@
+{
+  "name": "Fixed_400_100_CORRECTED",
+  "timestamp": "2026-02-25T05:25:58.972069",
+  "config": {
+    "chunk_size": "adaptive",
+    "model": "BAAI/bge-large-en-v1.5",
+    "k": 5,
+    "vendors": [
+      "IBM",
+      "Microsoft"
+    ],
+    "phase": "1",
+    "num_docs": "~80 (IBM + Microsoft + Red Hat + SUSE)"
+  },
+  "results": {
+    "total": 7,
+    "top1_correct": 2,
+    "top3_correct": 4,
+    "top5_correct": 4,
+    "not_found": 3,
+    "by_vendor": {
+      "IBM": {
+        "total": 3,
+        "top1": 2,
+        "top3": 2,
+        "top5": 2
+      },
+      "Microsoft": {
+        "total": 4,
+        "top1": 0,
+        "top3": 2,
+        "top5": 2
+      }
+    },
+    "by_difficulty": {
+      "EINFACH": {
+        "total": 3,
+        "top1": 1,
+        "top3": 3,
+        "top5": 3
+      },
+      "MITTEL": {
+        "total": 2,
+        "top1": 0,
+        "top3": 0,
+        "top5": 0
+      },
+      "SCHWER": {
+        "total": 2,
+        "top1": 1,
+        "top3": 1,
+        "top5": 1
+      }
+    }
+  },
+  "notes": "Feste Chunk-Größe 400/100, DEUTLICH besser als Adaptive (4/7 vs 2/7 bei Top-3), größere Chunks = mehr Kontext hilft! Nächster Schritt: Vendor-Metadata"
+}
