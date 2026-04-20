@@ -2,6 +2,9 @@
 
 This README explains, at a beginner level, how to run the `github_clone_repo.py` example that demonstrates authenticated communication between a Modal workspace and GitHub using a Personal Access Token (PAT). It covers:
 
+
+This line was added to keep this repository from expiring - 20260420
+
 - what the code does,
 - how the token is supplied securely (Modal secret → environment variable),
 - how to run the example both locally and inside Modal,
