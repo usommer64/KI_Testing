@@ -5,7 +5,7 @@ Experten-Fragen Test mit Ground Truth - Phase 1
 
 import logging
 from pathlib import Path
-from vectorstore import LicenseVectorStore
+from vectorstore_IBM_Mapping import LicenseVectorStore
 
 # Logging konfigurieren
 logging.basicConfig(

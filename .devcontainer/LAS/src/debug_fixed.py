@@ -5,7 +5,7 @@ Testet ob Suche funktioniert und zeigt Metadata
 """
 
 import chromadb
-from vectorstore import LicenseVectorStore
+from vectorstore_IBM_Mapping import LicenseVectorStore
 
 print("=" * 70)
 print("🔍 DEBUG: ibm_licenses_fixed Collection")
@@ -60,9 +60,14 @@ print("\n" + "=" * 70)
 print("TEST 2: METADATA-VERGLEICH")
 print("=" * 70)
 
+from chromadb.config import Settings
+
+#neuer Code 20260508
 client = chromadb.PersistentClient(
-    path='/workspaces/KI_Testing/.devcontainer/LAS/data/chroma_db'
+    path='/workspaces/KI_Testing/.devcontainer/LAS/data/chroma_db',
+    settings=Settings(anonymized_telemetry=False)
 )
+#neuer Code 20260508 Ende
 
 print("\nADAPTIVE Metadata Sample:")
 print("-" * 50)
