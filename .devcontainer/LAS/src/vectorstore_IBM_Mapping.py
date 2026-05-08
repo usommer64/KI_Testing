@@ -583,7 +583,8 @@ def main():
     print("=" * 70)
     
     # Pfad zu Dokumenten
-    data_dir = Path(__file__).parent.parent / "data"
+    default_data_dir = Path(__file__).parent.parent / "data" / "ibm"
+    data_dir = Path(os.getenv("LAS_DATA_DIR", str(default_data_dir)))
     
     # Vectorstore mit FIXED Chunking + IBM Mapping (Baseline)
     vectorstore = LicenseVectorStore(
