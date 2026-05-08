@@ -33,12 +33,12 @@ logger = logging.getLogger(__name__)
 # HELPER-FUNKTION: IBM Produkt-Mapping einlesen
 # ============================================================================
 
-def load_ibm_product_mapping(mapping_file: str = "product_mapping.txt") -> Dict[str, Dict[str, str]]:
+def load_ibm_product_mapping(mapping_file: str = "product_mapping.csv") -> Dict[str, Dict[str, str]]:
     """
     Liest die IBM Produkt-Mapping-Datei ein und erstellt ein Dictionary.
     
     Args:
-        mapping_file: Pfad zur Mapping-Datei (Standard: product_mapping.txt im data-Ordner)
+        mapping_file: Pfad zur Mapping-Datei (Standard: product_mapping. im data-Ordner)
     
     Returns:
         Dictionary mit license_code als Key und product_name, language, filename als Values
@@ -186,7 +186,7 @@ class LicenseVectorStore:
         persist_directory: str = None,
         embedding_model: str = "BAAI/bge-large-en-v1.5",
         use_adaptive_chunking: bool = True,
-        ibm_mapping_file: str = "product_mapping.txt"
+        ibm_mapping_file: str = "product_mapping.csv"
     ):
         """
         Args:
@@ -545,7 +545,7 @@ def main():
         collection_name="ibm_licenses",
         embedding_model="BAAI/bge-large-en-v1.5",
         use_adaptive_chunking=True,  # ← Für Fixed: False
-        ibm_mapping_file="product_mapping.txt"
+        ibm_mapping_file="product_mapping.csv"
     )
     
     # Dokumente laden und verarbeiten
