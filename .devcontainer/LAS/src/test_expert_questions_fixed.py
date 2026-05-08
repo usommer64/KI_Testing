@@ -6,6 +6,7 @@ Experten-Fragen Test mit Ground Truth - Phase 1
 import logging
 from pathlib import Path
 from vectorstore_IBM_Mapping import LicenseVectorStore
+from collection_names import IBM_FIXED
 
 # Logging konfigurieren
 logging.basicConfig(
@@ -109,7 +110,7 @@ def test_questions():
     
     # Initialisiere VectorStore (FIXED EXPERIMENT)
     vs = LicenseVectorStore(
-        collection_name="ibm_licenses_fixed",
+        collection_name=IBM_FIXED,
         embedding_model="BAAI/bge-large-en-v1.5",
         use_adaptive_chunking=False
     )

@@ -6,9 +6,10 @@ Testet ob Suche funktioniert und zeigt Metadata
 
 import chromadb
 from vectorstore_IBM_Mapping import LicenseVectorStore
+from collection_names import IBM_FIXED, IBM_ADAPTIVE
 
 print("=" * 70)
-print("🔍 DEBUG: ibm_licenses_fixed Collection")
+print(f"🔍 DEBUG: {IBM_FIXED} Collection")
 print("=" * 70)
 
 # ======================================================================
@@ -19,7 +20,7 @@ print("TEST 1: MANUELLE SUCHE")
 print("=" * 70)
 
 vs = LicenseVectorStore(
-    collection_name="ibm_licenses_fixed",
+    collection_name=IBM_FIXED,
     embedding_model="BAAI/bge-large-en-v1.5"
 )
 
@@ -71,14 +72,14 @@ client = chromadb.PersistentClient(
 
 print("\nADAPTIVE Metadata Sample:")
 print("-" * 50)
-coll_a = client.get_collection('ibm_licenses')
+coll_a = client.get_collection(IBM_ADAPTIVE)
 sample_a = coll_a.get(limit=2, include=['metadatas', 'documents'])
 for i, meta in enumerate(sample_a['metadatas'], 1):
     print(f"{i}. {meta}")
 
 print("\nFIXED Metadata Sample:")
 print("-" * 50)
-coll_f = client.get_collection('ibm_licenses_fixed')
+coll_f = client.get_collection(IBM_FIXED)
 sample_f = coll_f.get(limit=2, include=['metadatas', 'documents'])
 for i, meta in enumerate(sample_f['metadatas'], 1):
     print(f"{i}. {meta}")
@@ -91,8 +92,8 @@ print("\n" + "=" * 70)
 print("TEST 3: ADAPTIVE vs FIXED VERGLEICH")
 print("=" * 70)
 
-vs_adaptive = LicenseVectorStore(collection_name="ibm_licenses")
-vs_fixed = LicenseVectorStore(collection_name="ibm_licenses_fixed")
+vs_adaptive = LicenseVectorStore(collection_name=IBM_ADAPTIVE)
+vs_fixed = LicenseVectorStore(collection_name=IBM_FIXED)
 
 query = "Was ist Sub-Capacity Lizenzierung?"
 print(f"\nQuery: {query}\n")
