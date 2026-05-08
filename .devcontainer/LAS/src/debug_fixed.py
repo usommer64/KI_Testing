@@ -8,6 +8,12 @@ import chromadb
 from vectorstore_IBM_Mapping import LicenseVectorStore
 from collection_names import IBM_FIXED, IBM_ADAPTIVE
 
+# Import specific ChromaDB collection-not-found exception (falls back to ValueError for older versions)
+try:
+    from chromadb.errors import InvalidCollectionException as _CollectionNotFoundError
+except ImportError:
+    _CollectionNotFoundError = ValueError
+
 print("=" * 70)
 print(f"🔍 DEBUG: {IBM_FIXED} Collection")
 print("=" * 70)
@@ -63,19 +69,22 @@ print("=" * 70)
 
 from chromadb.config import Settings
 
-#neuer Code 20260508
 client = chromadb.PersistentClient(
     path='/workspaces/KI_Testing/.devcontainer/LAS/data/chroma_db',
     settings=Settings(anonymized_telemetry=False)
 )
-#neuer Code 20260508 Ende
 
-print("\nADAPTIVE Metadata Sample:")
-print("-" * 50)
-coll_a = client.get_collection(IBM_ADAPTIVE)
-sample_a = coll_a.get(limit=2, include=['metadatas', 'documents'])
-for i, meta in enumerate(sample_a['metadatas'], 1):
-    print(f"{i}. {meta}")
+adaptive_available = False
+try:
+    print("\nADAPTIVE Metadata Sample:")
+    print("-" * 50)
+    coll_a = client.get_collection(IBM_ADAPTIVE)
+    sample_a = coll_a.get(limit=2, include=['metadatas', 'documents'])
+    for i, meta in enumerate(sample_a['metadatas'], 1):
+        print(f"{i}. {meta}")
+    adaptive_available = True
+except _CollectionNotFoundError:
+    print(f"⚠️  ADAPTIVE collection '{IBM_ADAPTIVE}' not found, skipping metadata comparison")
 
 print("\nFIXED Metadata Sample:")
 print("-" * 50)
@@ -92,29 +101,32 @@ print("\n" + "=" * 70)
 print("TEST 3: ADAPTIVE vs FIXED VERGLEICH")
 print("=" * 70)
 
-vs_adaptive = LicenseVectorStore(collection_name=IBM_ADAPTIVE)
-vs_fixed = LicenseVectorStore(collection_name=IBM_FIXED)
+if not adaptive_available:
+    print(f"⚠️  ADAPTIVE collection '{IBM_ADAPTIVE}' not available, skipping ADAPTIVE vs FIXED comparison")
+else:
+    vs_adaptive = LicenseVectorStore(collection_name=IBM_ADAPTIVE)
+    vs_fixed = LicenseVectorStore(collection_name=IBM_FIXED)
 
-query = "Was ist Sub-Capacity Lizenzierung?"
-print(f"\nQuery: {query}\n")
+    query = "Was ist Sub-Capacity Lizenzierung?"
+    print(f"\nQuery: {query}\n")
 
-print("ADAPTIVE Top-3:")
-print("-" * 50)
-results_a = vs_adaptive.search(query, k=3)
-for i, r in enumerate(results_a, 1):
-    meta = r['metadata']
-    source = meta.get('source', meta.get('file_name', 'N/A'))
-    score = r.get('score', r.get('distance', 0))
-    print(f"{i}. {source[:60]:60} | Score: {score:.4f}")
+    print("ADAPTIVE Top-3:")
+    print("-" * 50)
+    results_a = vs_adaptive.search(query, k=3)
+    for i, r in enumerate(results_a, 1):
+        meta = r['metadata']
+        source = meta.get('source', meta.get('file_name', 'N/A'))
+        score = r.get('score', r.get('distance', 0))
+        print(f"{i}. {source[:60]:60} | Score: {score:.4f}")
 
-print("\nFIXED Top-3:")
-print("-" * 50)
-results_f = vs_fixed.search(query, k=3)
-for i, r in enumerate(results_f, 1):
-    meta = r['metadata']
-    source = meta.get('source', meta.get('file_name', 'N/A'))
-    score = r.get('score', r.get('distance', 0))
-    print(f"{i}. {source[:60]:60} | Score: {score:.4f}")
+    print("\nFIXED Top-3:")
+    print("-" * 50)
+    results_f = vs_fixed.search(query, k=3)
+    for i, r in enumerate(results_f, 1):
+        meta = r['metadata']
+        source = meta.get('source', meta.get('file_name', 'N/A'))
+        score = r.get('score', r.get('distance', 0))
+        print(f"{i}. {source[:60]:60} | Score: {score:.4f}")
 
 
 # ======================================================================
