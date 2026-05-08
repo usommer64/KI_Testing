@@ -162,6 +162,29 @@ def extract_metadata_from_filename(
     return metadata
 
 
+def sanitize_metadata(metadata: dict) -> dict:
+    """
+    Bereinigt Metadaten für ChromaDB:
+    - entfernt Keys mit None-Werten
+    - entfernt verschachtelte Strukturen (dict/list/tuple/set)
+    - behält nur str/int/float/bool als Value-Typen
+    """
+    if not isinstance(metadata, dict):
+        return {}
+
+    sanitized = {}
+    for key, value in metadata.items():
+        if value is None:
+            continue
+        if isinstance(value, (dict, list, tuple, set)):
+            continue
+        if not isinstance(value, (str, int, float, bool)):
+            continue
+        sanitized[key] = value
+
+    return sanitized
+
+
 # ============================================================================
 # HAUPTKLASSE: LicenseVectorStore
 # ============================================================================
@@ -347,6 +370,7 @@ class LicenseVectorStore:
                     chunk.metadata['word_count'] = word_count
                     chunk.metadata['chunk_size'] = chunk_size
                     chunk.metadata['overlap'] = overlap
+                    chunk.metadata['file_name'] = pdf_file.name
                     # IBM Mapping Metadaten hinzufügen
                     chunk.metadata['manufacturer'] = ibm_metadata['manufacturer']
                     chunk.metadata['product_name'] = ibm_metadata['product_name']
@@ -393,6 +417,7 @@ class LicenseVectorStore:
                     chunk.metadata['word_count'] = word_count
                     chunk.metadata['chunk_size'] = chunk_size
                     chunk.metadata['overlap'] = overlap
+                    chunk.metadata['file_name'] = docx_file.name
                     chunk.metadata['manufacturer'] = ibm_metadata['manufacturer']
                     chunk.metadata['product_name'] = ibm_metadata['product_name']
                     chunk.metadata['language'] = ibm_metadata['language']
@@ -446,7 +471,25 @@ class LicenseVectorStore:
         
         # Texte und Metadaten extrahieren
         texts = [doc.page_content for doc in documents]
-        metadatas = [doc.metadata for doc in documents]
+        metadatas = []
+        cleaned_documents = 0
+        cleaned_keys = 0
+
+        for doc in documents:
+            raw_metadata = doc.metadata if isinstance(doc.metadata, dict) else {}
+            sanitized_metadata = sanitize_metadata(raw_metadata)
+            metadatas.append(sanitized_metadata)
+
+            removed_count = len(raw_metadata) - len(sanitized_metadata)
+            if removed_count > 0:
+                cleaned_documents += 1
+                cleaned_keys += removed_count
+
+        if cleaned_documents > 0:
+            logger.warning(
+                f"⚠️  Metadaten bereinigt: {cleaned_documents}/{len(documents)} Dokumente, "
+                f"{cleaned_keys} Keys entfernt (None/verschachtelt/ungültiger Typ)"
+            )
         
         # UUID-IDs generieren
         ids = [str(uuid.uuid4()) for _ in range(len(documents))]
