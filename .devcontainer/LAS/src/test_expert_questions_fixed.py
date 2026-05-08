@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
 """
 Experten-Fragen Test mit Ground Truth - Phase 1
+
+Vendor-Filter:
+  Per Umgebungsvariable: LAS_VENDOR=IBM|Microsoft|All  (Default: IBM)
+  Per CLI-Argument:      --vendor IBM|Microsoft|All
 """
 
+import argparse
 import logging
+import os
 from pathlib import Path
 from vectorstore_IBM_Mapping import LicenseVectorStore
 from collection_names import IBM_FIXED
@@ -100,11 +106,31 @@ EXPERT_QUESTIONS = {
 }
 
 
-def test_questions():
-    """Führt alle Test-Fragen aus und bewertet Ergebnisse"""
-    
+def test_questions(vendor_filter="IBM"):
+    """Führt alle Test-Fragen aus und bewertet Ergebnisse.
+
+    Args:
+        vendor_filter: "IBM", "Microsoft" oder "All" (default: "IBM")
+    """
+
+    # Fragen nach Vendor filtern
+    if vendor_filter == "All":
+        filtered_questions = EXPERT_QUESTIONS
+    else:
+        filtered_questions = {
+            k: v for k, v in EXPERT_QUESTIONS.items()
+            if v["vendor"] == vendor_filter
+        }
+
+    n_filtered = len(filtered_questions)
+    n_total = len(EXPERT_QUESTIONS)
+
     print("=" * 70)
-    print("🧪 EXPERTEN-FRAGEN TEST - PHASE 1 (7 Fragen)")
+    print(f"🧪 EXPERTEN-FRAGEN TEST - PHASE 1 ({n_filtered} Fragen)")
+    if vendor_filter == "All":
+        print(f"   Vendor-Filter: Alle ({n_filtered} Fragen)")
+    else:
+        print(f"   Vendor-Filter: {vendor_filter} ({n_filtered}/{n_total} Fragen nach Filter)")
     print("=" * 70)
     print()
     
@@ -127,7 +153,7 @@ def test_questions():
     }
     
     # Teste jede Frage
-    for q_id, q_data in EXPERT_QUESTIONS.items():
+    for q_id, q_data in filtered_questions.items():
         stats["total"] += 1
         
         vendor = q_data["vendor"]
@@ -137,7 +163,7 @@ def test_questions():
         alternative_docs = q_data.get("alternative_docs", [])
         
         print("=" * 70)
-        print(f"Frage {stats['total']}/{len(EXPERT_QUESTIONS)} ({vendor} - {difficulty})")
+        print(f"Frage {stats['total']}/{n_filtered} ({vendor} - {difficulty})")
         print("=" * 70)
         print(f"Q: {question}")
         print()
@@ -281,8 +307,19 @@ def test_questions():
 if __name__ == "__main__":
     import sys
     
+    # Vendor-Filter: CLI-Argument hat Vorrang vor Umgebungsvariable
+    parser = argparse.ArgumentParser(description="Experten-Fragen Test mit Ground Truth")
+    parser.add_argument(
+        "--vendor",
+        default=os.environ.get("LAS_VENDOR", "IBM"),
+        choices=["IBM", "Microsoft", "All"],
+        help="Vendor-Filter für Testfragen (default: IBM, oder LAS_VENDOR env var)"
+    )
+    args = parser.parse_args()
+    vendor_filter = args.vendor
+    
     # Test durchführen
-    stats = test_questions()
+    stats = test_questions(vendor_filter=vendor_filter)
     
     # Experiment tracken (optional - wenn experiment_tracker.py existiert)
     try:
@@ -303,7 +340,8 @@ if __name__ == "__main__":
             "chunk_size": "adaptive",
             "model": "BAAI/bge-large-en-v1.5",
             "k": 5,
-            "vendors": ["IBM", "Microsoft"],
+            "vendor_filter": vendor_filter,
+            "vendors": [vendor_filter] if vendor_filter != "All" else sorted({v.get("vendor") for v in EXPERT_QUESTIONS.values() if v.get("vendor")}),
             "phase": "1",
             "num_docs": "~80 (IBM + Microsoft + Red Hat + SUSE)"
         }
