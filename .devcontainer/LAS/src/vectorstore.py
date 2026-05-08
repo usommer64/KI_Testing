@@ -1,8 +1,16 @@
 #%%
 """
-Vectorstore für IBM Lizenzierungsdokumente
-Verwendet ChromaDB + BGE-Large-en-v1.5 Embeddings
-Mit adaptiver UND fester Chunk-Größe (Flag-gesteuert)
+⚠️  LEGACY – NICHT MEHR VERWENDEN ⚠️
+
+Diese Datei ist ein Steinbruch / Referenzimplementierung und wird nicht
+mehr aktiv gepflegt. Die kanonische, aktuelle Implementierung befindet
+sich in `vectorstore_IBM_Mapping.py`.
+
+Importiere bitte stets aus `vectorstore_IBM_Mapping`:
+    from vectorstore_IBM_Mapping import LicenseVectorStore
+
+Und nutze Collection-Konstanten aus `collections.py`:
+    from collection_names import IBM_FIXED, IBM_ADAPTIVE
 """
 
 from pathlib import Path

@@ -529,22 +529,24 @@ class LicenseVectorStore:
 def main():
     """
     Build-Script: Erstellt Vectorstore mit IBM Mapping.
-    Nutze use_adaptive_chunking Flag für Experimente!
+    Baut standardmäßig die FIXED-Baseline-Collection (IBM_FIXED, use_adaptive_chunking=False).
+    Für Adaptive-Experimente: collection_name=IBM_ADAPTIVE, use_adaptive_chunking=True.
     """
     from pathlib import Path
+    from collection_names import IBM_FIXED
     
     print("=" * 70)
-    print("🏗️  BAUE VECTORSTORE MIT IBM PRODUCT MAPPING + ADAPTIVE CHUNKING")
+    print("🏗️  BAUE VECTORSTORE MIT IBM PRODUCT MAPPING (FIXED BASELINE)")
     print("=" * 70)
     
     # Pfad zu Dokumenten
     data_dir = Path(__file__).parent.parent / "data"
     
-    # Vectorstore mit ADAPTIVE Chunking + IBM Mapping
+    # Vectorstore mit FIXED Chunking + IBM Mapping (Baseline)
     vectorstore = LicenseVectorStore(
-        collection_name="ibm_licenses",
+        collection_name=IBM_FIXED,
         embedding_model="BAAI/bge-large-en-v1.5",
-        use_adaptive_chunking=True,  # ← Für Fixed: False
+        use_adaptive_chunking=False,  # ← True für Adaptive-Experimente
         ibm_mapping_file="product_mapping.csv"
     )
     
