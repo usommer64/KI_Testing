@@ -16,6 +16,7 @@ import logging
 import uuid
 import os
 import re
+from collections import Counter
 
 from sentence_transformers import SentenceTransformer
 import chromadb
@@ -150,11 +151,9 @@ def extract_metadata_from_filename(
                 logger.debug(f"License Code {license_code} nicht im IBM Mapping gefunden")
     
     else:
-        # Annahme: Microsoft oder anderer Hersteller
-        metadata['manufacturer'] = 'Microsoft'
+        # Annahme: IBM (für IBM-Pipeline; Dateinamen sind nicht immer L-....)
+        metadata['manufacturer'] = 'IBM'
         metadata['product_name'] = filename.replace('.pdf', '').replace('.PDF', '')
-        
-        # Versuche Sprache aus Dateinamen zu extrahieren (z.B. _de.pdf, _en.pdf)
         lang_match = re.search(r'_([a-z]{2})\.pdf$', filename, re.IGNORECASE)
         if lang_match:
             metadata['language'] = lang_match.group(1).lower()
@@ -375,7 +374,8 @@ class LicenseVectorStore:
                     chunk.metadata['manufacturer'] = ibm_metadata['manufacturer']
                     chunk.metadata['product_name'] = ibm_metadata['product_name']
                     chunk.metadata['language'] = ibm_metadata['language']
-                    chunk.metadata['license_code'] = ibm_metadata.get('license_code')
+                    if ibm_metadata.get('license_code') is not None:
+                        chunk.metadata['license_code'] = ibm_metadata['license_code']
                 
                 all_chunks.extend(chunks)
                 logger.info(f"  → {len(chunks)} Chunks erstellt ({ibm_metadata['product_name']})")
@@ -421,7 +421,8 @@ class LicenseVectorStore:
                     chunk.metadata['manufacturer'] = ibm_metadata['manufacturer']
                     chunk.metadata['product_name'] = ibm_metadata['product_name']
                     chunk.metadata['language'] = ibm_metadata['language']
-                    chunk.metadata['license_code'] = ibm_metadata.get('license_code')
+                    if ibm_metadata.get('license_code') is not None:
+                        chunk.metadata['license_code'] = ibm_metadata['license_code']
                 
                 all_chunks.extend(chunks)
                 logger.info(f"  → {len(chunks)} Chunks erstellt")
@@ -474,21 +475,27 @@ class LicenseVectorStore:
         metadatas = []
         cleaned_documents = 0
         cleaned_keys = 0
+        removed_key_counter = Counter()
 
         for doc in documents:
             raw_metadata = doc.metadata if isinstance(doc.metadata, dict) else {}
             sanitized_metadata = sanitize_metadata(raw_metadata)
             metadatas.append(sanitized_metadata)
 
-            removed_count = len(raw_metadata) - len(sanitized_metadata)
-            if removed_count > 0:
+            removed_keys = set(raw_metadata.keys()) - set(sanitized_metadata.keys())
+            if removed_keys:
                 cleaned_documents += 1
-                cleaned_keys += removed_count
+                cleaned_keys += len(removed_keys)
+                removed_key_counter.update(removed_keys)
 
         if cleaned_documents > 0:
+            top_removed = ", ".join(
+                f"{k}({v})" for k, v in removed_key_counter.most_common(10)
+            )
             logger.warning(
                 f"⚠️  Metadaten bereinigt: {cleaned_documents}/{len(documents)} Dokumente, "
-                f"{cleaned_keys} Keys entfernt (None/verschachtelt/ungültiger Typ)"
+                f"{cleaned_keys} Keys entfernt (None/verschachtelt/ungültiger Typ). "
+                f"Top removed keys: {top_removed}"
             )
         
         # UUID-IDs generieren
