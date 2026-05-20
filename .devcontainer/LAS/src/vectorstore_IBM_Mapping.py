@@ -16,9 +16,10 @@ import logging
 import uuid
 import os
 import re
+import time
 from collections import Counter
 
-from sentence_transformers import SentenceTransformer
+from sentence_transformers import SentenceTransformer, CrossEncoder
 import chromadb
 from chromadb.config import Settings
 from langchain.schema import Document
@@ -274,7 +275,24 @@ class LicenseVectorStore:
                 metadata={"description": "IBM Licensing Documents with Product Mapping"}
             )
             logger.info(f"✅ Collection '{collection_name}' erstellt")
-    
+
+        # Lazy-loaded CrossEncoder für Reranking (nur wenn aktiviert)
+        self._reranker = None
+        self._reranker_model_name = None
+
+    # Helper-Funktion: Lazy-Load CrossEncoder Reranker, 20260509
+    def _get_reranker(self, model_name: str) -> CrossEncoder:
+        """
+        Lazy-load CrossEncoder reranker to avoid overhead when not used.
+        CPU-only friendly; will download model on first use if not cached.
+        """
+        if self._reranker is None or self._reranker_model_name != model_name:
+            logger.info(f"📥 Lade Reranker-Modell: {model_name}")
+            self._reranker = CrossEncoder(model_name)
+            self._reranker_model_name = model_name
+            logger.info("✅ Reranker geladen")
+        return self._reranker
+
     def _get_chunk_params(self, file_name: str, word_count: int) -> tuple:
         """
         Bestimmt optimale Chunk-Parameter.
@@ -518,7 +536,11 @@ class LicenseVectorStore:
         self,
         query: str,
         k: int = 5,
-        filter_metadata: Optional[dict] = None
+        filter_metadata: Optional[dict] = None,
+        rerank: bool = False,
+        rerank_top_n: int = 30,
+        rerank_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2",
+        rerank_query: Optional[str] = None,
     ) -> List[dict]:
         """
         Sucht ähnliche Dokumente.
@@ -533,29 +555,62 @@ class LicenseVectorStore:
         """
         logger.info(f"🔍 Suche: '{query}'")
         
+        #n_results und Timing, 20260509
+        t0 = time.perf_counter()
+        n_results = max(k, rerank_top_n) if rerank else k
+
         # Query-Embedding erstellen (mit Query-Prefix!)
         query_embedding = self.embed_texts([query], is_query=True)[0]
         
         # ChromaDB-Suche
         results = self.collection.query(
             query_embeddings=[query_embedding],
-            n_results=k,
+            n_results=n_results,
             where=filter_metadata
         )
         
         # Ergebnisse formatieren
         formatted_results = []
-        for i in range(len(results['ids'][0])):
-            result = {
-                "id": results['ids'][0][i],
-                "text": results['documents'][0][i],
-                "metadata": results['metadatas'][0][i],
-                "score": results['distances'][0][i]
-            }
-            formatted_results.append(result)
+        for i in range(len(results["ids"][0])):
+            formatted_results.append(
+                {
+                    "id": results["ids"][0][i],
+                    "text": results["documents"][0][i],
+                    "metadata": results["metadatas"][0][i],
+                    "distance": results["distances"][0][i],
+                }
+            )
+
+        # Optional: Reranking mit CrossEncoder
+        if rerank and formatted_results:
+            t_r0 = time.perf_counter()
+
+            rerank_text = rerank_query or query
+
+            reranker = self._get_reranker(rerank_model)
+            pairs = [(rerank_text, r["text"]) for r in formatted_results]
+            rerank_scores = reranker.predict(pairs)
+
+            for r, s in zip(formatted_results, rerank_scores):
+                r["rerank_score"] = float(s)
+
+            # higher rerank_score is better
+            formatted_results.sort(key=lambda x: x.get("rerank_score", 0.0), reverse=True)
+
+            t_r1 = time.perf_counter()
+            
+
+            logger.info(
+                f"🔁 Rerank aktiv: top_n={n_results} → top_k={k} | "
+                f"rerank_time={(t_r1 - t_r0):.3f}s | total_time={(t_r1 - t0):.3f}s"
+            )
+        else:
+            t1 = time.perf_counter()
+            logger.info(f"⏱️  Search total_time={(t1 - t0):.3f}s")       
         
-        logger.info(f"✅ {len(formatted_results)} Ergebnisse gefunden")
-        return formatted_results
+        topk = formatted_results[:k]
+        logger.info(f"✅ {len(topk)} Ergebnisse gefunden")
+        return topk
     
     def get_stats(self) -> dict:
         """Gibt erweiterte Statistiken über die Datenbank zurück."""
@@ -652,3 +707,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# %%

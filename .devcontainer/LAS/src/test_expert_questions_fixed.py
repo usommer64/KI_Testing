@@ -10,6 +10,7 @@ Vendor-Filter:
 import argparse
 import logging
 import os
+import re
 from pathlib import Path
 from vectorstore_IBM_Mapping import LicenseVectorStore
 from collection_names import IBM_FIXED
@@ -19,6 +20,43 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(levelname)s:%(name)s:%(message)s'
 )
+
+def expand_query(question: str) -> str:
+    q = question
+    q_l = question.lower()
+
+    # PVU / Capacity / Sub-Capacity / Virtualization (vendor-agnostisch)
+    if (
+        re.search(r"\bpvu\b", q_l)
+        or "full-capacity" in q_l or "full capacity" in q_l
+        or "sub-capacity" in q_l or "sub capacity" in q_l
+        or "virtualization" in q_l or "virtualisierung" in q_l
+        or "ilmt" in q_l
+    ):
+        q += (
+            " Processor Value Unit PVU"
+            " full capacity sub-capacity virtualization capacity"
+            " eligibility requirements eligible virtualization technology operating system"
+            " approved metering tool ILMT BigFix Inventory"
+            " monitor meter peak"
+        )
+
+    # RVU
+    if re.search(r"\brvu\b", q_l) or "resource value unit" in q_l:
+        q += (
+            " Resource Value Unit RVU"
+            " conversion table calculate required entitlements"
+        )
+
+    # UVU (falls relevant)
+    if re.search(r"\buvu\b", q_l) or "user value unit" in q_l:
+        q += (
+            " User Value Unit UVU"
+            " authorized user"
+        )
+
+    return q
+
 
 # ======================================================================
 # TEST-FRAGEN MIT GROUND TRUTH
@@ -155,13 +193,13 @@ def test_questions(vendor_filter="IBM"):
     # Teste jede Frage
     for q_id, q_data in filtered_questions.items():
         stats["total"] += 1
-        
+
         vendor = q_data["vendor"]
         difficulty = q_data["difficulty"]
         question = q_data["question"]
         expected_doc = q_data["primary_doc"]
         alternative_docs = q_data.get("alternative_docs", [])
-        
+
         print("=" * 70)
         print(f"Frage {stats['total']}/{n_filtered} ({vendor} - {difficulty})")
         print("=" * 70)
@@ -177,20 +215,40 @@ def test_questions(vendor_filter="IBM"):
         if q_data.get("reason"):
             print(f"Grund: {q_data['reason']}")
         print("-" * 70)
-        
-        # Suche durchführen
-        results = vs.search(question, k=5)
-        
+
+        # Suche durchführen - Reranking optional per Env
+        rerank = os.environ.get("LAS_RERANK", "0") == "1"
+        rerank_top_n = int(os.environ.get("LAS_RERANK_TOP_N", "30"))
+        rerank_model = os.environ.get("LAS_RERANK_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2")
+
+        # Für die Bewertung wollen wir IMMER Top-5 zurückbekommen:
+        k_eval = 5
+
+        # Query-Expansion (vendor-/question-agnostisch)
+        question_to_search = expand_query(question)
+
+        results = vs.search(
+            question_to_search,
+            k=k_eval,
+            rerank=rerank,
+            rerank_top_n=rerank_top_n,
+            rerank_model=rerank_model,
+        )
+      # DEBUG: Optional dense-only Top-100 OHNE Rerank (LAS_DEBUG_DENSE_TOP100=1)
+        debug_dense_top100 = os.environ.get("LAS_DEBUG_DENSE_TOP100", "0") == "1"
+        debug_results = None
+        if debug_dense_top100:
+            debug_results = vs.search(question_to_search, k=100, rerank=False)
+
         # Bewertung
         found_at = None
         all_valid_docs = [expected_doc] + alternative_docs
-        
+
         for i, result in enumerate(results, 1):
-            # FIX: Extrahiere Dateinamen aus source (Fixed-Collection hat kein file_name)
             source = result["metadata"].get("source", "")
             doc_name = Path(source).name if source else "UNKNOWN"
-            
-            # Spezialfall: Microsoft Product Terms (akzeptiere alle Dateien die "Product Terms" enthalten)
+
+            # Spezialfall: Microsoft Product Terms (für spätere Nutzung)
             if expected_doc == "Product Terms":
                 if "Product Terms" in doc_name:
                     found_at = i
@@ -199,7 +257,28 @@ def test_questions(vendor_filter="IBM"):
             elif doc_name in all_valid_docs:
                 found_at = i
                 break
-        
+
+        # DEBUG: Prüfen, ob erwartetes Doc irgendwo in den (evtl. >5) Ergebnissen vorkommt
+        if debug_dense_top100 and debug_results is not None:
+            hits = []
+            for j, r in enumerate(debug_results, 1):
+                source = r["metadata"].get("source", "")
+                doc_name = Path(source).name if source else "UNKNOWN"
+                if doc_name == expected_doc:
+                    page = r["metadata"].get("page", "?")
+                    preview = (r.get("text", "") or "").replace("\n", " ")[:160]
+                    hits.append((j, page, preview))
+
+            print(
+                f"\nDEBUG (dense-only): '{expected_doc}' Treffer in Top-{len(debug_results)}: "
+                f"{[(pos, page) for (pos, page, _) in hits] if hits else 'NICHT ENTHALTEN'}\n"
+            )
+
+            # Detailausgabe pro Treffer (Position, Seite, Text-Preview)
+            for pos, page, preview in hits:
+                print(f"   - Hit @ {pos:>3} | Seite {page}: {preview}...")
+            print()
+            
         # Statistiken aktualisieren
         if found_at == 1:
             stats["top1_correct"] += 1
