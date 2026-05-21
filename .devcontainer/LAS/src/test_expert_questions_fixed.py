@@ -106,12 +106,14 @@ def load_questions_from_json(path: Path):
 QUESTIONS_FILE = Path(os.environ.get("LAS_QUESTIONS_FILE", str(DEFAULT_QUESTIONS_FILE)))
 EXPERT_QUESTIONS = load_questions_from_json(QUESTIONS_FILE)
 
-def test_questions(vendor_filter="IBM"):
+def test_questions(vendor_filter="IBM", only_ids=None):
     """Führt alle Test-Fragen aus und bewertet Ergebnisse.
 
     Args:
         vendor_filter: "IBM", "Microsoft" oder "All" (default: "IBM")
+        only_ids: Optionale Liste von Fragen-IDs (z. B. ["IBM-009", "IBM-012"])
     """
+    only_ids = list(dict.fromkeys(only_ids or []))
 
     # Fragen nach Vendor filtern
     if vendor_filter == "All":
@@ -122,25 +124,18 @@ def test_questions(vendor_filter="IBM"):
             if v["vendor"] == vendor_filter
         }
 
+    # Optional auf explizite Fragen-IDs einschränken
+    if only_ids:
+        only_ids_set = set(only_ids)
+        filtered_questions = {
+            k: v for k, v in filtered_questions.items()
+            if k in only_ids_set
+        }
+
     n_filtered = len(filtered_questions)
     n_total = len(EXPERT_QUESTIONS)
+    only_suffix = f", only={','.join(only_ids)}" if only_ids else ""
 
-    print("=" * 70)
-    print(f"🧪 EXPERTEN-FRAGEN TEST - PHASE 1 ({n_filtered} Fragen)")
-    if vendor_filter == "All":
-        print(f"   Vendor-Filter: Alle ({n_filtered} Fragen)")
-    else:
-        print(f"   Vendor-Filter: {vendor_filter} ({n_filtered}/{n_total} Fragen nach Filter)")
-    print("=" * 70)
-    print()
-    
-    # Initialisiere VectorStore (FIXED EXPERIMENT)
-    vs = LicenseVectorStore(
-        collection_name=IBM_FIXED,
-        embedding_model="BAAI/bge-large-en-v1.5",
-        use_adaptive_chunking=False
-    )
-    
     # Statistiken
     stats = {
         "total": 0,
@@ -151,7 +146,29 @@ def test_questions(vendor_filter="IBM"):
         "by_vendor": {},    # Statistik pro Vendor
         "by_difficulty": {} # Statistik pro Schwierigkeit
     }
-    
+
+    print("=" * 70)
+    print(f"🧪 EXPERTEN-FRAGEN TEST - PHASE 1 ({n_filtered} Fragen{only_suffix})")
+    if vendor_filter == "All":
+        print(f"   Vendor-Filter: Alle ({n_filtered} Fragen)")
+    else:
+        print(f"   Vendor-Filter: {vendor_filter} ({n_filtered}/{n_total} Fragen nach Filter)")
+    if only_ids:
+        print(f"   Only-Filter: {', '.join(only_ids)}")
+    print("=" * 70)
+    print()
+
+    if n_filtered == 0:
+        print("⚠️  Keine Fragen nach den gesetzten Filtern ausgewählt.")
+        return stats
+
+    # Initialisiere VectorStore (FIXED EXPERIMENT)
+    vs = LicenseVectorStore(
+        collection_name=IBM_FIXED,
+        embedding_model="BAAI/bge-large-en-v1.5",
+        use_adaptive_chunking=False
+    )
+
     # Teste jede Frage
     for q_id, q_data in filtered_questions.items():
         stats["total"] += 1
@@ -357,11 +374,40 @@ if __name__ == "__main__":
         choices=["IBM", "Microsoft", "All"],
         help="Vendor-Filter für Testfragen (default: IBM, oder LAS_VENDOR env var)"
     )
+    parser.add_argument(
+        "--only",
+        action="append",
+        default=[],
+        help="Nur bestimmte Fragen-IDs ausführen (mehrfach oder CSV, z.B. --only IBM-009 --only IBM-012 oder --only IBM-009,IBM-012)"
+    )
+    parser.add_argument(
+        "--list-ids",
+        action="store_true",
+        help="Alle verfügbaren Fragen-IDs anzeigen und beenden"
+    )
     args = parser.parse_args()
+
+    if args.list_ids:
+        for q_id in sorted(EXPERT_QUESTIONS):
+            print(q_id)
+        sys.exit(0)
+
+    only_ids = []
+    for item in args.only:
+        only_ids.extend([q_id.strip() for q_id in item.split(",") if q_id.strip()])
+    only_ids = list(dict.fromkeys(only_ids))
+
+    if only_ids:
+        missing_ids = [q_id for q_id in only_ids if q_id not in EXPERT_QUESTIONS]
+        if missing_ids:
+            print(f"❌ Unbekannte Fragen-IDs: {', '.join(missing_ids)}")
+            print("Nutze --list-ids für alle verfügbaren IDs.")
+            sys.exit(2)
+
     vendor_filter = args.vendor
     
     # Test durchführen
-    stats = test_questions(vendor_filter=vendor_filter)
+    stats = test_questions(vendor_filter=vendor_filter, only_ids=only_ids)
     
     # Experiment tracken (optional - wenn experiment_tracker.py existiert)
     try:
@@ -384,6 +430,7 @@ if __name__ == "__main__":
             "k": 5,
             "vendor_filter": vendor_filter,
             "vendors": [vendor_filter] if vendor_filter != "All" else sorted({v.get("vendor") for v in EXPERT_QUESTIONS.values() if v.get("vendor")}),
+            "only_ids": only_ids,
             "phase": "1",
             "num_docs": "~80 (IBM + Microsoft + Red Hat + SUSE)"
         }
