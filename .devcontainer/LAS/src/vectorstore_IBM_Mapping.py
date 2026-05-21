@@ -17,6 +17,7 @@ import uuid
 import os
 import re
 import time
+import json
 from collections import Counter
 
 from sentence_transformers import SentenceTransformer, CrossEncoder
@@ -29,6 +30,47 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 # Logging konfigurieren
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+# ============================================================================
+# BAD ACTORS: overview/generic documents to down-rank in retrieval
+# ============================================================================
+
+_DEFAULT_BAD_ACTORS_JSON = Path(__file__).parent / "questions" / "bad_actors.json"
+
+# Built-in fallback list (used when JSON is missing or invalid)
+_BUILTIN_BAD_ACTORS: frozenset = frozenset([
+    "IBM_Licensing_Models_Passport Advantage.pdf",
+    "L-YRHY-YWPJ3V_de.pdf",
+])
+
+
+def _load_bad_actors() -> frozenset:
+    """Load bad-actor document names from JSON. Falls back to built-in defaults on error."""
+    path_str = os.environ.get("LAS_BAD_ACTORS_JSON", str(_DEFAULT_BAD_ACTORS_JSON))
+    path = Path(path_str)
+    try:
+        if not path.exists():
+            logger.warning(
+                f"⚠️  Bad actors JSON not found: {path}. Using built-in defaults."
+            )
+            return _BUILTIN_BAD_ACTORS
+        with path.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+        if not isinstance(data, list):
+            raise ValueError("bad_actors.json must be a JSON array")
+        result = frozenset(str(name).strip() for name in data if name)
+        logger.info(f"✅ Loaded {len(result)} bad actor(s) from {path}")
+        return result
+    except Exception as exc:
+        logger.warning(
+            f"⚠️  Failed to load bad actors from {path}: {exc}. Using built-in defaults."
+        )
+        return _BUILTIN_BAD_ACTORS
+
+
+# Module-level constant: resolved once at import time
+BAD_ACTORS: frozenset = _load_bad_actors()
 
 
 # ============================================================================
@@ -532,7 +574,16 @@ class LicenseVectorStore:
         
         logger.info(f"✅ {len(documents)} Dokumente hinzugefügt")
 
-    def _diversify_by_doc(self, results, k: int, max_per_doc: int = 2):
+    def _diversify_by_doc(self, results, k: int, max_per_doc: int = 2, per_doc_caps: dict = None):
+        """Return up to k results with at most max_per_doc per document.
+
+        Args:
+            results: Candidate list (already sorted by relevance).
+            k: Maximum number of results to return.
+            max_per_doc: Default maximum chunks per document.
+            per_doc_caps: Optional dict mapping doc_name -> individual cap, overriding
+                          max_per_doc for specific documents (e.g. bad actors).
+        """
         out = []
         counts = {}
 
@@ -541,7 +592,8 @@ class LicenseVectorStore:
             doc = Path(source).name if source else "UNKNOWN"
 
             counts.setdefault(doc, 0)
-            if counts[doc] >= max_per_doc:
+            cap = per_doc_caps.get(doc, max_per_doc) if per_doc_caps else max_per_doc
+            if counts[doc] >= cap:
                 continue
 
             out.append(r)
@@ -579,7 +631,7 @@ class LicenseVectorStore:
         t0 = time.perf_counter()
 
         # How many candidates to retrieve from Chroma before post-processing
-        internal_k = int(os.environ.get("LAS_INTERNAL_K", "30"))
+        internal_k = int(os.environ.get("LAS_INTERNAL_K", "50"))
 
         # If rerank: need enough candidates for rerank_top_n (and at least internal_k)
         # If no rerank: still retrieve internal_k so diversification can work
@@ -610,6 +662,18 @@ class LicenseVectorStore:
                 }
             )
 
+        # Bad-actor soft penalty: nudge overview documents down before ranking
+        bad_actor_penalty = float(os.environ.get("LAS_BAD_ACTORS_DISTANCE_PENALTY", "0.05"))
+        if bad_actor_penalty > 0 and BAD_ACTORS:
+            for r in formatted_results:
+                doc_name = Path(r["metadata"].get("source", "")).name
+                if doc_name in BAD_ACTORS:
+                    r["distance"] = r["distance"] + bad_actor_penalty
+
+        # Re-sort by distance after penalty when not reranking
+        if not rerank:
+            formatted_results.sort(key=lambda x: x["distance"])
+
         # Optional: Reranking mit CrossEncoder
         if rerank and formatted_results:
             t_r0 = time.perf_counter()
@@ -624,11 +688,17 @@ class LicenseVectorStore:
             for r, s in zip(formatted_results, rerank_scores):
                 r["rerank_score"] = float(s)
 
+            # Apply bad-actor penalty to rerank scores (lower is worse for rerank)
+            if bad_actor_penalty > 0 and BAD_ACTORS:
+                for r in formatted_results:
+                    doc_name = Path(r["metadata"].get("source", "")).name
+                    if doc_name in BAD_ACTORS:
+                        r["rerank_score"] = r["rerank_score"] - bad_actor_penalty
+
             # higher rerank_score is better
             formatted_results.sort(key=lambda x: x.get("rerank_score", 0.0), reverse=True)
 
             t_r1 = time.perf_counter()
-            
 
             logger.info(
                 f"🔁 Rerank aktiv: top_n={n_results} → top_k={k} | "
@@ -636,14 +706,22 @@ class LicenseVectorStore:
             )
         else:
             t1 = time.perf_counter()
-            logger.info(f"⏱️  Search total_time={(t1 - t0):.3f}s")       
-        
-        max_per_doc = int(os.environ.get("LAS_MAX_PER_DOC", "2"))
+            logger.info(f"⏱️  Search total_time={(t1 - t0):.3f}s")
 
+        max_per_doc = int(os.environ.get("LAS_MAX_PER_DOC", "1"))
+        bad_actors_max_per_doc = int(os.environ.get("LAS_BAD_ACTORS_MAX_PER_DOC", "1"))
 
-        #neues Auffüllen von Topk, 20260521
+        # Per-doc cap overrides for bad actors: always at most the general cap
+        per_doc_caps = (
+            {doc: min(bad_actors_max_per_doc, max_per_doc) for doc in BAD_ACTORS}
+            if BAD_ACTORS else {}
+        )
+
         if max_per_doc > 0:
-            topk = self._diversify_by_doc(formatted_results, k=k, max_per_doc=max_per_doc)
+            topk = self._diversify_by_doc(
+                formatted_results, k=k, max_per_doc=max_per_doc, per_doc_caps=per_doc_caps
+            )
+            # Fill up to k if diversification left gaps
             if len(topk) < k:
                 used_ids = {r["id"] for r in topk}
                 for r in formatted_results:
@@ -654,8 +732,6 @@ class LicenseVectorStore:
                         break
         else:
             topk = formatted_results[:k]
-
-        #neues Auffüllen von Topk, 20260521 Ende
 
         logger.info(f"✅ {len(topk)} Ergebnisse gefunden")
         return topk
