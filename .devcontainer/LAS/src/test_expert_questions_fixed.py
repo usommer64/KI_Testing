@@ -124,8 +124,9 @@ def test_questions(vendor_filter="IBM", only_ids=None):
             if v["vendor"] == vendor_filter
         }
 
-    # Optional auf explizite Fragen-IDs einschränken
+    excluded_by_vendor = []
     if only_ids:
+        excluded_by_vendor = [q_id for q_id in only_ids if q_id not in filtered_questions]
         only_ids_set = set(only_ids)
         filtered_questions = {
             k: v for k, v in filtered_questions.items()
@@ -134,7 +135,6 @@ def test_questions(vendor_filter="IBM", only_ids=None):
 
     n_filtered = len(filtered_questions)
     n_total = len(EXPERT_QUESTIONS)
-    only_suffix = f", only={','.join(only_ids)}" if only_ids else ""
 
     # Statistiken
     stats = {
@@ -146,6 +146,7 @@ def test_questions(vendor_filter="IBM", only_ids=None):
         "by_vendor": {},    # Statistik pro Vendor
         "by_difficulty": {} # Statistik pro Schwierigkeit
     }
+    only_suffix = f", only={','.join(only_ids)}" if only_ids else ""
 
     print("=" * 70)
     print(f"🧪 EXPERTEN-FRAGEN TEST - PHASE 1 ({n_filtered} Fragen{only_suffix})")
@@ -155,6 +156,8 @@ def test_questions(vendor_filter="IBM", only_ids=None):
         print(f"   Vendor-Filter: {vendor_filter} ({n_filtered}/{n_total} Fragen nach Filter)")
     if only_ids:
         print(f"   Only-Filter: {', '.join(only_ids)}")
+    if excluded_by_vendor:
+        print(f"   ⚠️  Durch Vendor-Filter ausgeschlossen: {', '.join(excluded_by_vendor)}")
     print("=" * 70)
     print()
 
