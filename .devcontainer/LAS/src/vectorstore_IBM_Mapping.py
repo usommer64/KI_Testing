@@ -531,6 +531,26 @@ class LicenseVectorStore:
         )
         
         logger.info(f"✅ {len(documents)} Dokumente hinzugefügt")
+
+    def _diversify_by_doc(self, results, k: int, max_per_doc: int = 2):
+        out = []
+        counts = {}
+
+        for r in results:
+            source = (r.get("metadata") or {}).get("source", "")
+            doc = Path(source).name if source else "UNKNOWN"
+
+            counts.setdefault(doc, 0)
+            if counts[doc] >= max_per_doc:
+                continue
+
+            out.append(r)
+            counts[doc] += 1
+
+            if len(out) >= k:
+                break
+
+        return out
     
     def search(
         self,
@@ -555,9 +575,18 @@ class LicenseVectorStore:
         """
         logger.info(f"🔍 Suche: '{query}'")
         
-        #n_results und Timing, 20260509
+        # n_results und Timing
         t0 = time.perf_counter()
-        n_results = max(k, rerank_top_n) if rerank else k
+
+        # How many candidates to retrieve from Chroma before post-processing
+        internal_k = int(os.environ.get("LAS_INTERNAL_K", "30"))
+
+        # If rerank: need enough candidates for rerank_top_n (and at least internal_k)
+        # If no rerank: still retrieve internal_k so diversification can work
+        if rerank:
+            n_results = max(k, rerank_top_n, internal_k)
+        else:
+            n_results = max(k, internal_k)
 
         # Query-Embedding erstellen (mit Query-Prefix!)
         query_embedding = self.embed_texts([query], is_query=True)[0]
@@ -586,6 +615,7 @@ class LicenseVectorStore:
             t_r0 = time.perf_counter()
 
             rerank_text = rerank_query or query
+            logger.info(f"🔁 Rerank query: '{rerank_text}'")
 
             reranker = self._get_reranker(rerank_model)
             pairs = [(rerank_text, r["text"]) for r in formatted_results]
@@ -608,7 +638,25 @@ class LicenseVectorStore:
             t1 = time.perf_counter()
             logger.info(f"⏱️  Search total_time={(t1 - t0):.3f}s")       
         
-        topk = formatted_results[:k]
+        max_per_doc = int(os.environ.get("LAS_MAX_PER_DOC", "2"))
+
+
+        #neues Auffüllen von Topk, 20260521
+        if max_per_doc > 0:
+            topk = self._diversify_by_doc(formatted_results, k=k, max_per_doc=max_per_doc)
+            if len(topk) < k:
+                used_ids = {r["id"] for r in topk}
+                for r in formatted_results:
+                    if r["id"] in used_ids:
+                        continue
+                    topk.append(r)
+                    if len(topk) >= k:
+                        break
+        else:
+            topk = formatted_results[:k]
+
+        #neues Auffüllen von Topk, 20260521 Ende
+
         logger.info(f"✅ {len(topk)} Ergebnisse gefunden")
         return topk
     

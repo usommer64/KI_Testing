@@ -11,9 +11,17 @@ import argparse
 import logging
 import os
 import re
+import json
 from pathlib import Path
 from vectorstore_IBM_Mapping import LicenseVectorStore
 from collection_names import IBM_FIXED
+
+#---temporäres debuging
+import inspect
+print("LicenseVectorStore object:", LicenseVectorStore)
+print("Defined in:", inspect.getfile(LicenseVectorStore))
+print("Signature:", inspect.signature(LicenseVectorStore))
+#---temporäres debuging ende
 
 # Logging konfigurieren
 logging.basicConfig(
@@ -57,92 +65,46 @@ def expand_query(question: str) -> str:
 
     return q
 
-
 # ======================================================================
-# TEST-FRAGEN MIT GROUND TRUTH
+# QUESTIONS FILE (JSON)
 # ======================================================================
 
-EXPERT_QUESTIONS = {
-    # ===== IBM (3 Fragen) =====
-    "ibm_1": {
-        "vendor": "IBM",
-        "difficulty": "EINFACH",
-        "question": "Welche Produkte sind im Produkt WebSphere Application Server als Supporting Product enthalten?",
-        "primary_doc": "L-YRHY-YWPJ3V_de.pdf",
-        "alternative_docs": [],
-        "pages": [2, 3],
-        "section": "Supporting Products Liste",
-        "reason": "Auf den Seiten 2 und 3 des Dokuments sind die Supporting Products aufgelistet",
-    },
-    
-    "ibm_2": {
-        "vendor": "IBM",
-        "difficulty": "MITTEL",
-        "question": "Welche Informationen benötige ich um für ein Produkt den PVU Bedarf unter Full-Capacity zu berechnen?",
-        "primary_doc": "IBM_Virtualization_Capacity_August2024.pdf",
-        "alternative_docs": [],
-        "pages": [5, 6],
-        "section": "Sub Capacity Requirements",
-        "reason": "Prinzip der Sub Capacity Zählung und die 4 Voraussetzungen, die erfüllt sein müssen, werden dargestellt",
-    },
-    
-    "ibm_3": {
-        "vendor": "IBM",
-        "difficulty": "SCHWER",
-        "question": "Wie wird der RVU Bedarf bei dem Produkt IBM Content Manager Enterprise Edition berechnet?",
-        "primary_doc": "IBM-License-Measurement-Methodology-IBM-Content-Manager-Enterprise-Edition.pdf",
-        "alternative_docs": [],
-        "pages": [4, 11, 12],
-        "section": "RVU Calculation",
-        "reason": "Auf Seite 4 wird die RVU genannt, die für dieses Programm gilt. Auf Seite 11 und 12 werden die relevanten Umrechnungsfaktoren genannt",
-    },
-    
-    # ===== MICROSOFT (4 Fragen) =====
-    "ms_1": {
-        "vendor": "Microsoft",
-        "difficulty": "EINFACH",
-        "question": "In welchen Fällen muss der Zugriff auf Dynamics 365 nicht mit einer Client Access CAL pro User (User CAL) lizenziert werden?",
-        "primary_doc": "Microsoft_Multiplexing Licensing Guidance.PDF",
-        "alternative_docs": [],
-        "pages": [5],
-        "section": "Restricted vs Unrestricted Tables",
-        "reason": "Hier wird der Unterschied zwischen restricted und unrestricted Tables erklärt",
-    },
-    
-    "ms_2": {
-        "vendor": "Microsoft",
-        "difficulty": "EINFACH",
-        "question": "Welches Betriebssystem gilt nicht als Qualifizierendes Betriebssystem für Windows 11 Upgrade Lizenzen?",
-        "primary_doc": "Microsoft_Windows 11 Qualifying OS Licensing Guidance.PDF",
-        "alternative_docs": [],
-        "pages": [3],
-        "section": "Qualifying OS Table",
-        "reason": "Hier wird eine Tabelle gezeigt, in der es für Windows Embedded operating systems KEIN Kreuzchen gibt",
-    },
-    
-    "ms_3": {
-        "vendor": "Microsoft",
-        "difficulty": "MITTEL",
-        "question": "Was ist die Voraussetzung dafür, dass ein Kunde Step-Up Lizenzen erwerben kann?",
-        "primary_doc": "Microsoft_Step-Up Licenses Licensing Guidance.PDF",
-        "alternative_docs": [],
-        "pages": [2],
-        "section": "Prerequisites",
-        "reason": "Hier wird die Voraussetzung genannt (aktive Software Assurance)",
-    },
-    
-    "ms_4": {
-        "vendor": "Microsoft",
-        "difficulty": "SCHWER",
-        "question": "Wie lange ist eine Lizenz nach ihrer Zuweisung an ein Gerät oder Nutzer mindestens an dieses Gerät oder diesen Nutzer gebunden?",
-        "primary_doc": "Product Terms",  # Flexibel - alle Product Terms Docs akzeptieren
-        "alternative_docs": [],
-        "pages": [],  # Unbekannt - in Universal License Terms Abschnitt
-        "section": "Universal License Terms / For All Software / License Assignment and Reassignment",
-        "reason": "Hier wird der Zeitraum genannt (90 Tage)",
-    },
-}
+DEFAULT_QUESTIONS_FILE = Path(__file__).parent / "questions" / "ibm_expert_questions.json"
 
+def load_questions_from_json(path: Path):
+    with path.open("r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    if not isinstance(data, list):
+        raise ValueError("Questions JSON must be a list")
+
+    questions = {}
+    for item in data:
+        q_id = item["id"]
+
+        # prefer explicit "question", else DE, else EN
+        q_text = (item.get("question") or item.get("question_de") or item.get("question_en") or "").strip()
+        if not q_text:
+            raise ValueError(f"Question text missing for {q_id}")
+
+        questions[q_id] = {
+            "vendor": item.get("vendor", "IBM"),
+            "difficulty": item.get("difficulty", "MITTEL"),
+            "question": q_text,
+            "primary_doc": item["expected_doc"],
+            "alternative_docs": item.get("alternative_docs", []),
+            "pages": item.get("expected_pages", []),
+            "section": item.get("expected_section", ""),
+            "reason": item.get("reason", ""),
+            # optional future use:
+            # "expected_answer_snippet": item.get("expected_answer_snippet"),
+        }
+
+    return questions
+
+# Load questions from JSON (default IBM set)
+QUESTIONS_FILE = Path(os.environ.get("LAS_QUESTIONS_FILE", str(DEFAULT_QUESTIONS_FILE)))
+EXPERT_QUESTIONS = load_questions_from_json(QUESTIONS_FILE)
 
 def test_questions(vendor_filter="IBM"):
     """Führt alle Test-Fragen aus und bewertet Ergebnisse.
@@ -233,6 +195,7 @@ def test_questions(vendor_filter="IBM"):
             rerank=rerank,
             rerank_top_n=rerank_top_n,
             rerank_model=rerank_model,
+            rerank_query=question,
         )
       # DEBUG: Optional dense-only Top-100 OHNE Rerank (LAS_DEBUG_DENSE_TOP100=1)
         debug_dense_top100 = os.environ.get("LAS_DEBUG_DENSE_TOP100", "0") == "1"
